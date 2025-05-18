@@ -1,0 +1,96 @@
+--- lib/sui.c	2015-11-08 16:56:48.000000000 +0100
++++ lib/sui.c	2018-10-23 21:52:41.630162877 +0200
+@@ -311,7 +311,7 @@ void ExitProg(char *fmt, ...)
+    Out(buf);
+ 
+    /* Maybe that only temporary log file was created but not renamed */
+-   if (*tlogname != '\0') if (0 != TransformLog()) printf(errmsg);
++   if (*tlogname != '\0') if (0 != TransformLog()) printf("%s", errmsg);
+ 
+    Log("Exiting program.");
+    if (n == 0)
+@@ -931,7 +931,32 @@ int GetToken(char *str, int i, char *buf
+  PARAMETERS:
+  RETURN    : 1 if found and v contains the value, 0 otherwise
+  *---------------------------------------------------------------------------*/
+-int IsNumVal(char *str, ulng *v)
++int IsNumVal(char *str, uint *v)
++{
++   char *c = str;
++   int r = 0, l1, l2 = 0;
++   uint t = 0;
++   
++   l1 = strlen(str);
++   while ((*c < '0' || *c > '9') && (*c != 0)) ++c;
++   while (*c >= '0' && *c <= '9')
++   {
++      t = t * 10 + *c - '0';
++      ++c;
++      ++l2;
++   }
++   if (l1 == l2 && l2 != 0) { r = 1; *v = t; }
++
++   return (r);
++}
++
++/*---------------------------------------------------------------------------*
++ NAME      :
++ PURPOSE   : Check if string is a numeric int value
++ PARAMETERS:
++ RETURN    : 1 if found and v contains the value, 0 otherwise
++ *---------------------------------------------------------------------------*/
++int IsLNumVal(char *str, ulng *v)
+ {
+    char *c = str;
+    int r = 0, l1, l2 = 0;
+@@ -959,12 +984,12 @@ int IsNumVal(char *str, ulng *v)
+ void Mysysopen(char *strin)
+ {
+    char aaa[10*MAXLINELEN];
+-   int res;
++   int res1, res2;
+ 
+    /* printf("SUI: strin=%s\n", strin); */
+ /*
+    tmpnam(Mysystn);
+-   if (NULL == res)
++   if (NULL == res1)
+       ExitProg("Cannot create tmp file through mktemp().");
+    sprintf(aaa, "%s; set| cat >>%s", strin, Mysystn);
+    system(aaa);
+@@ -973,12 +998,14 @@ void Mysysopen(char *strin)
+    }
+ */
+    strcpy(Mysystn, "suigenXXXXXX");
+-   res = mkstemp(Mysystn);
+-   if (-1 == res)
++   res1 = mkstemp(Mysystn);
++   if (-1 == res1)
+       ExitProg("Mysysopen: Cannot create tmp file through mkstemp().");
+    sprintf(aaa, "%s; set| cat >>%s", strin, Mysystn);
+-   system(aaa);
+-   if (NULL == (Mysysfp = fdopen(res, "rt"))) {
++   res2 = system(aaa);
++   if (0 != res2)
++      ExitProg("Mysysopen: Error while issuing system command '%s'.", aaa);
++   if (NULL == (Mysysfp = fdopen(res1, "rt"))) {
+       exit(0);
+    }
+ /**/
+@@ -1008,12 +1035,15 @@ void Mysyspars(char *resu, char *key)
+    char vvv[10*MAXLINELEN];
+    char aux[10*MAXLINELEN];
+    char c[2] = "x";
++   size_t cnt;
+ 
+    /* printf("SUI: key=%s\n", key); */
+    aux[0] = '\0';
+    fseek(Mysysfp, 0L, SEEK_SET);
+    while (!feof(Mysysfp)) {
+-      fread(c, 1, 1, Mysysfp);
++      cnt = fread(c, 1, 1, Mysysfp);
++      if (cnt != 1)
++         ExitProg("Mysyspars: Error while reading from Mysysfp.");
+       if (*c != '=' && *c != '\n') {
+          strcat(aux, c);
+       }

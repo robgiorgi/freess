@@ -1,0 +1,20 @@
+### TODO
+
+- model the LSU QUEUE: it is necessary to maintain the precedence between load and store!
+  -- the coordination of the memory dataflow is still missing (see chap. 8 of Johnson91)
+  -- the store data must be buffered and written to memory only at the time of complete ??
+
+- model the update of the register values (partial for now)
+
+- model the exception handling with the consequent rollback
+
+- model the branch prediction
+  (it may not be necessary because with few instructions it is difficult to train the predictor !!)
+
+- model the safe recovery
+
+- it seems that the issue is not done for n instructions but for n-1 ??
+
+- generic stage buffers could be eliminated (they do not exist in reality)
+  only D,P really need them at their input
+

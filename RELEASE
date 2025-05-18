@@ -1,0 +1,6 @@
+0.1 -- May 2009 -- Initial Release
+0.2 -- Nov 2015 -- Clean up for GCC 5.1
+0.4 -- Oct 2018 -- Fixed P-name in SQ, effective address in LQ/SQ, removed available time (CL) on immediate, ported on Ubuntu 18.04, added possibility to load registers values as specified in the program file
+0.5 -- Oct 2018 -- Fixed LQ/SQ bug: eleminted redundant option lsq_size
+0.6 -- Oct 2018 -- Restyling of the interface, added explanation of stalls (on screen and on stall.log)
+1.0 -- May 2025 -- Using RISC-V-like syntax
