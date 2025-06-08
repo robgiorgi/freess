@@ -9,17 +9,17 @@ testprog="program-$testdate2"
 
 cat <<EOF >$testprog
 #! 1
-#x 1 1000
-#x 4 4000
-#x 5 5000
-#x 6 6000
-1  3  4  2  # LW
-1  7  5  2  # LW
-7  7  7  3  # MUL
-6  1  1  -1 # ADDI
-2  7  6  2  # SW
-6  2  2  8  # ADDI
-4  1  0  -7 # BNE
+#x 1 10
+#x 4 40
+#x 5 50
+#x 6 60
+1  3  4  0   # LW
+1  7  5  128 # LW
+7  7  7  3   # MUL
+6  1  1  -1  # ADDI
+2  7  6  256 # SW
+6  2  2  8   # ADDI
+4  1  0  -7  # BNE
 EOF
 
 
