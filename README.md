@@ -2,7 +2,7 @@
 RISC-V Superscalar Educational Simulator based on Tomasulo's Algorithm
 
 # Tutorial/Paper
-This paper has been published at the Workshop on Computer Architecture Education 2025 (at ISCA-2025).
+[This paper has been published at the Workshop on Computer Architecture Education 2025 (at ISCA-2025).](https://www.dii.unisi.it/~giorgi/papers/Giorgi25-wcae.pdf)
 Please cite this work via this reference:
 ```
 @InProceedings{Giorgi25-wcae,
