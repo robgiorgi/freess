@@ -48,20 +48,36 @@
 #ifdef __GNU_LIBRARY__
 #include <stdlib.h>
 #else
-char *getenv ();
+char *getenv (char *);
 #endif
 
 #ifndef	NULL
 #define NULL 0
 #endif
 
+//function prototypes
 int
-getopt_long (argc, argv, options, long_options, opt_index)
-     int argc;
-     char *const *argv;
-     const char *options;
-     const struct option *long_options;
-     int *opt_index;
+getopt_long (
+     int argc,
+     char *const *argv,
+     const char *options,
+     const struct option *long_options,
+     int *opt_index);
+int
+getopt_long_only (
+     int argc,
+     char *const *argv,
+     const char *options,
+     const struct option *long_options,
+     int *opt_index);
+
+int
+getopt_long (
+     int argc,
+     char *const *argv,
+     const char *options,
+     const struct option *long_options,
+     int *opt_index)
 {
   return _getopt_internal (argc, argv, options, long_options, opt_index, 0);
 }
@@ -72,12 +88,12 @@ getopt_long (argc, argv, options, long_options, opt_index)
    instead.  */
 
 int
-getopt_long_only (argc, argv, options, long_options, opt_index)
-     int argc;
-     char *const *argv;
-     const char *options;
-     const struct option *long_options;
-     int *opt_index;
+getopt_long_only (
+     int argc,
+     char *const *argv,
+     const char *options,
+     const struct option *long_options,
+     int *opt_index)
 {
   return _getopt_internal (argc, argv, options, long_options, opt_index, 1);
 }

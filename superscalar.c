@@ -372,10 +372,10 @@ static char **LSQCOLUMN;
 char LOGBUF[10000];
 
 /*------------- INTERNAL FUNCTIONS PROTOTYPES -------------------------------*/
-int read_program(char *progname);
-int dump_instruction_program(void);
-int dump_pipeline(int stage, int ic_ini, int ic_end);
-int print_lregs_args(Instruction *ip, char *regs, char *labpfx);
+void read_program(char *progname);
+void dump_instruction_program(void);
+void dump_pipeline(int stage, int ic_ini, int ic_end);
+void print_lregs_args(Instruction *ip, char *regs, char *labpfx);
 
 /*------------- FUNCTIONS IMPLEMENTATION ------------------------------------*/
 /*---------------------------------------------------------------------------*
@@ -565,7 +565,7 @@ void Superscalar__Destru(void)
  PARAMETERS:
  RETURN    :
  *---------------------------------------------------------------------------*/
-int print_hypothesis(void)
+void print_hypothesis(void)
 {
     int ways = AA.f_width, onedone = 0;;
     char out1[256], out2[64];
@@ -702,8 +702,10 @@ int Superscalar__Start(int argc, char **argv)
          Display(LOGBUF); *LOGBUF='\0';
       }
       if (G.interactive && ! G.silent) {
+#ifndef __EMSCRIPTEN__
          ret = scanf("%c", c);
 	 if (ret == 0) printf("\n"); //i.e., do nothing
+#endif
       }
       if (G.batch) { if (CO != NULL) fclose(CO); }
 
@@ -865,6 +867,7 @@ int Dispatch_STAGE(void) {
    if (op == S_FU) { PushS(rd); }
    RS[r].BUSY = 1;
    RF[rd].qi = r;
+   return(0);
 }
 
 /*---------------------------------------------------------------------------*
@@ -894,6 +897,7 @@ int Issue_STAGE(void) {
       }
 
    }
+   return(0);
 }
 
 /*---------------------------------------------------------------------------*
@@ -907,14 +911,14 @@ void Complete_STAGE(void) {
 
    if (CDB[0].BUSY == 1) {
       for (rr = 1; rr <= RS_MAX; ++rr) {
-         if (RS[rr].QJ == CDB[0].qi) { RS[rr].VJ == CDB[0].vi; RS[rr].QJ = 0; RS[rr].BUSY = 0; }
-         if (RS[rr].QK == CDB[0].qi) { RS[rr].VK == CDB[0].vi; RS[rr].QK = 0; RS[rr].BUSY = 0; }
+         if (RS[rr].QJ == CDB[0].qi) { RS[rr].VJ = CDB[0].vi; RS[rr].QJ = 0; RS[rr].BUSY = 0; }
+         if (RS[rr].QK == CDB[0].qi) { RS[rr].VK = CDB[0].vi; RS[rr].QK = 0; RS[rr].BUSY = 0; }
       }
       for (rr = 0; rr < RF_MAX; ++rr) {
-         if (RF[rr].qi == CDB[0].qi) { RF[rr].vi == CDB[0].vi; RF[rr].qi = 0; }
+         if (RF[rr].qi == CDB[0].qi) { RF[rr].vi = CDB[0].vi; RF[rr].qi = 0; }
       }
       for (rr = 0; rr < SQ_MAX; ++rr) {
-//         if (SQ[rr].qi == CDB[0].qi) { SQ[rr].vi == CDB[0].vi; SQ[rr].qi = 0; }
+//         if (SQ[rr].qi == CDB[0].qi) { SQ[rr].vi = CDB[0].vi; SQ[rr].qi = 0; }
       }
    }
 }
@@ -1393,7 +1397,7 @@ int GetIWEntry(int *wk)
  PARAMETERS:
  RETURN    :
  *---------------------------------------------------------------------------*/
-int ReleaseIWEntry(int wk)
+void ReleaseIWEntry(int wk)
 {
    if (debug) printf("  - Release IW entry: %s\n", OPNAME[IW[wk].ip->opcode]);
    if (IW[wk].qj == 0) { IW[wk].cj= CK; IW[wk].ip->cj = CK; }
@@ -1417,8 +1421,9 @@ int StageMoveInstr(int st, int w0, int wk)
 {
    int p, q, k;
 
-       memcpy(&(STAGE_BUF[st][w0]), &(STAGE_BUF[st][wk]), sizeof(InstructionSlot));
-       STAGE_BUF[st][wk].delay = 0;
+   memcpy(&(STAGE_BUF[st][w0]), &(STAGE_BUF[st][wk]), sizeof(InstructionSlot));
+   STAGE_BUF[st][wk].delay = 0;
+   return(0);
 }
 
 /*---------------------------------------------------------------------------*
@@ -1506,6 +1511,7 @@ int ReleasePhysicalReg(int pn)
    RM[pn].busy = 0; 
    RM[pn].qi = 1; 
    --PRAllocated;
+   return 0;
 }
 
 /*---------------------------------------------------------------------------*
@@ -1570,7 +1576,7 @@ Instruction *InstructionMemoryRead()
  PARAMETERS:
  RETURN    :
  *---------------------------------------------------------------------------*/
-int Branch_Prediction(u32 mypc, Instruction *ip)
+void Branch_Prediction(u32 mypc, Instruction *ip)
 {
    /* Always taken for now */
    ip->NPC = mypc + ip->rs3;
@@ -2096,6 +2102,7 @@ int FETCH_END(Instruction *ipdummy)
          printf("  FETCH_END:%4s k=%d delay=%d PC=%02d IC=%02d SF=%d\n", OPNAME[ip->opcode], k, isp[k].delay, ip->CPC, ip->CIC, STAGE_LAST[FETCH]);
       }
    }
+   return(0);
 }
 
 /*---------------------------------------------------------------------------*
@@ -2106,6 +2113,7 @@ int FETCH_END(Instruction *ipdummy)
  *---------------------------------------------------------------------------*/
 int RENAME_END(Instruction *ipdummy)
 {
+   return(0);
 }
 
 /*---------------------------------------------------------------------------*
@@ -2130,6 +2138,7 @@ int DISPATCH_END(Instruction *ipdummy)
          isp1 = STAGE_BUF[DISPATCH];
       }
    }
+   return(0);
 }
 
 /*---------------------------------------------------------------------------*
@@ -2165,6 +2174,7 @@ int ISSUE_END(Instruction *ipdummy)
    }
 
 // ReleaseFU(ip);
+   return(0);
 }
 
 /*---------------------------------------------------------------------------*
@@ -2196,6 +2206,7 @@ int EXECUTE_END(Instruction *ipdummy)
          if (debug) if (!nldone) printf("\n");
       }
    }
+   return(0);
 }
 
 /*---------------------------------------------------------------------------*
@@ -2236,6 +2247,7 @@ int COMMIT_END(Instruction *ipdummy)
    CBHead = 0;
 
    //TODO; for the committed instructions, write the results of the Pregs into the Lregs
+   return(0);
 }
 
 /*---------------------------------------------------------------------------*
@@ -2293,7 +2305,7 @@ if (debug) { needln = 1; if (ip2 != 0) printf(" %s/%03d", OPNAME[ip2->opcode], i
 if (debug) { needln = 0; printf(" --> sl=%d found_free_slot(p)=%d\n", STAGE_LAST[st], p); fflush(stdin); }
                //----------------------------------------------------------------------------
 //               r=0; if (ip0 != NULL) r = (STAGE_DO[st])(ip0);
-               r=0; if (ip0 != NULL || ST_IGNORE_STBUF) { needln = 0; r = (STAGE_DO[st])(ip0); }
+               r=0; if (ip0 != NULL || ST_IGNORE_STBUF[st] == 1) { needln = 0; r = (STAGE_DO[st])(ip0); }
 //               r = (STAGE_DO[st])(ip0);
                //----------------------------------------------------------------------------
                if (st == FETCH) {
@@ -2380,14 +2392,14 @@ if (debug) if (needln) { needln = 0; printf("\n"); }
  PARAMETERS:
  RETURN    :
  *---------------------------------------------------------------------------*/
-int print_lregs_args(Instruction *ip, char *regs, char *labpfx)
+void print_lregs_args(Instruction *ip, char *regs, char *labpfx)
 {
     int k = 1;
     *regs = '\0'; //empty string (sprintf (regs,"") not liked by GCC 7)
 
     switch (OPFORMAT[ip->opcode]) {
       case FORMAT_B:
-         if (ip->rs1 == -1 || ip->rs2 == -1) return (0);
+         if (ip->rs1 == -1 || ip->rs2 == -1) return;
          if (0 != strcmp(labpfx, "")) {
             sprintf(regs, "x%d,x%d,%s%d", ip->rs1, ip->rs2, labpfx, k);
          } else {
@@ -2395,29 +2407,29 @@ int print_lregs_args(Instruction *ip, char *regs, char *labpfx)
          }
          break;
       case FORMAT_I:
-         if (ip->rs1 == -1 || ip->rd == -1) return (0);
+         if (ip->rs1 == -1 || ip->rd == -1) return;
          sprintf(regs, "x%d,x%d,%d", ip->rd, ip->rs1, ip->rs3);
          break;
       case FORMAT_I2:
-         if (ip->rs1 == -1 || ip->rd == -1) return (0);
+         if (ip->rs1 == -1 || ip->rd == -1) return;
          sprintf(regs, "x%d,%d(x%d)", ip->rd, ip->rs3, ip->rs1);
          break;
       case FORMAT_S2:
-//         if (ip->rs1 == -1 || ip->rs3 == -1) return (0);
-         if (ip->rs1 == -1 || ip->rs2 == -1) return (0);
+//         if (ip->rs1 == -1 || ip->rs3 == -1) return;
+         if (ip->rs1 == -1 || ip->rs2 == -1) return;
 //         sprintf(regs, "x%d,%d(x%d)", ip->rs3, ip->rs2, ip->rs1);
          sprintf(regs, "x%d,%d(x%d)", ip->rs1, ip->rs3, ip->rs2);
          break;
       case FORMAT_I3:
-         if (ip->rs1 == -1 || ip->rd == -1 || ip->rs2 == -1) return (0);
+         if (ip->rs1 == -1 || ip->rd == -1 || ip->rs2 == -1) return;
          sprintf(regs, "x%d,x%d(x%d)", ip->rd, ip->rs2, ip->rs1);
          break;
       case FORMAT_S3:
-         if (ip->rs1 == -1 || ip->rs2 == -1 || ip->rs3 == -1) return (0);
+         if (ip->rs1 == -1 || ip->rs2 == -1 || ip->rs3 == -1) return;
          sprintf(regs, "x%d,x%d(x%d)", ip->rs3, ip->rs2, ip->rs1);
          break;
       case FORMAT_R:
-         if (ip->rs1 == -1 || ip->rs2 == -1 || ip->rd == -1) return (0);
+         if (ip->rs1 == -1 || ip->rs2 == -1 || ip->rd == -1) return;
          sprintf(regs, "x%d,x%d,x%d", ip->rd, ip->rs1, ip->rs2);
          break;
       default:
@@ -2432,47 +2444,45 @@ int print_lregs_args(Instruction *ip, char *regs, char *labpfx)
  PARAMETERS:
  RETURN    :
  *---------------------------------------------------------------------------*/
-int print2_pregs_args(Instruction *ip, char *regs)
+void print2_pregs_args(Instruction *ip, char *regs)
 {
    *regs = '\0'; //empty string (sprintf (regs,"") not liked by GCC 7)
 
    switch (OPFORMAT[ip->opcode]) {
       case FORMAT_B:
-         if (ip->ps1 == -1 || ip->ps2 == -1) return (0);
+         if (ip->ps1 == -1 || ip->ps2 == -1) return;
          sprintf(regs, ",P%d,P%d,%d", ip->ps1, ip->ps2, ip->ps3);
          break;
       case FORMAT_I:
-         if (ip->ps1 == -1 || ip->pd == -1) return (0);
+         if (ip->ps1 == -1 || ip->pd == -1) return;
          sprintf(regs, "P%d,P%d,%d", ip->pd, ip->ps1, ip->ps3);
          break;
       case FORMAT_I2:
-         if (ip->ps1 == -1 || ip->pd == -1) return (0);
+         if (ip->ps1 == -1 || ip->pd == -1) return;
          sprintf(regs, "P%d,%d(P%d)", ip->pd, ip->ps3, ip->ps1);
          break;
       case FORMAT_S2:
-//         if (ip->ps1 == -1 || ip->ps3 == -1) return (0);
-         if (ip->ps1 == -1 || ip->ps2 == -1) return (0);
+//         if (ip->ps1 == -1 || ip->ps3 == -1) return;
+         if (ip->ps1 == -1 || ip->ps2 == -1) return;
 //         sprintf(regs, "P%d,%d(P%d)", ip->ps3, ip->ps2, ip->ps1);
          sprintf(regs, ",%d(P%d)<-P%d", ip->ps3, ip->ps2, ip->ps1);
          break;
       case FORMAT_I3:
-         if (ip->ps1 == -1 || ip->pd == -1 || ip->ps2 == -1) return (0);
+         if (ip->ps1 == -1 || ip->pd == -1 || ip->ps2 == -1) return;
          sprintf(regs, "P%d,P%d(P%d)", ip->pd, ip->ps2, ip->ps1);
          break;
       case FORMAT_S3:
-         if (ip->ps1 == -1 || ip->ps2 == -1 || ip->ps3 == -1) return (0);
+         if (ip->ps1 == -1 || ip->ps2 == -1 || ip->ps3 == -1) return;
          sprintf(regs, ",P%d(P%d)<-P%d", ip->ps2, ip->ps1, ip->ps3);
          break;
       case FORMAT_R:
-         if (ip->ps1 == -1 || ip->ps2 == -1 || ip->pd == -1) return (0);
+         if (ip->ps1 == -1 || ip->ps2 == -1 || ip->pd == -1) return;
          sprintf(regs, "P%d,P%d,P%d", ip->pd, ip->ps1, ip->ps2);
          break;
       default:
          *regs = '\0'; //empty string (sprintf (regs,"") not liked by GCC 7)
          break;
    }
-  
-   return (1);
 }
 
 /*---------------------------------------------------------------------------*
@@ -2481,7 +2491,7 @@ int print2_pregs_args(Instruction *ip, char *regs)
  PARAMETERS:
  RETURN    :
  *---------------------------------------------------------------------------*/
-int dump_instruction_program(void)
+void dump_instruction_program(void)
 {
    int k, n = Queue__Count(PI);
    Instruction *ip;
@@ -2501,7 +2511,7 @@ int dump_instruction_program(void)
  PARAMETERS:
  RETURN    :
  *---------------------------------------------------------------------------*/
-int read_program(char *pn)
+void read_program(char *pn)
 {
    char buf[128], buf1[32], buf2[32], buf3[32];
    u32 fvers = 0, icount = 0;
@@ -2649,7 +2659,7 @@ void print_RBEntry(Instruction *ip, char *buf)
  PARAMETERS:
  RETURN    :
  *---------------------------------------------------------------------------*/
-int dump_pipeline(int stage, int ic_ini, int ic_end)
+void dump_pipeline(int stage, int ic_ini, int ic_end)
 {
    int p, n1, m1, k, n, st, ic, st_ini, st_end, tc, j, count, fa, first = 1;
    int row, regn, lat;
@@ -2678,29 +2688,36 @@ int dump_pipeline(int stage, int ic_ini, int ic_end)
    strcpy(out1, ""); for (k = 1; k <= SCREENWIDTH; ++k) { strcat(out1, "="); } Display("%s", out1);
 
    strcpy(out, "PHYSICAL REGS:");
+   size_t len = strlen(out);
    for (k = 1; k <= AA.pregs; ++k) {
-      sprintf(out, "%s %2d", out, k);
+      len += snprintf(out + len, sizeof(out) - len, " %2d", k);
    }
    Display("%s", out);
    if (CO != NULL) fprintf(CO, "%s\n", out);
 //   sprintf(out1, "(%d/%d)", PRAllocated, AA.pregs);
 //   sprintf(out, "%23s", out1);
    sprintf(out, "%14s", "");
+   len = strlen(out);
    for (k = 1; k <= AA.pregs; ++k) {
-      sprintf(out, "%s %2s", out, RM[k].busy ? "*" : " ");
+     len += snprintf(out + len, sizeof(out) - len, " %2s", RM[k].busy ? "*" : " ");
    }
    Display("%s", out);
    if (CO != NULL) fprintf(CO, "%s\n", out);
+
    strcpy(out, "          qi: ");
+   len = strlen(out);
    for (k = 1; k <= AA.pregs; ++k) {
-      sprintf(out, "%s %2d", out, RM[k].qi);
+      len += snprintf(out + len, sizeof(out) - len, " %2d", RM[k].qi);
    }
    Display("%s", out);
    if (CO != NULL) fprintf(CO, "%s\n", out);
+
    strcpy(out, "          vi: ");
+   len = strlen(out);
    for (k = 1; k <= AA.pregs; ++k) {
-      sprintf(out, "%s %02X", out, RM[k].vi % 256);
+      len += snprintf(out + len, sizeof(out) - len, " %02X", RM[k].vi % 256);
    }
+
    Display("%s", out);
    if (CO != NULL) fprintf(CO, "%s\n", out);
 
@@ -2708,78 +2725,107 @@ int dump_pipeline(int stage, int ic_ini, int ic_end)
    strcpy(out1, ""); for (k = 1; k <= SCREENWIDTH; ++k) { strcat(out1, "="); } Display("%s", out1);
 
    strcpy(out, "REG.FILE: xi: ");
+   len = strlen(out);
    for (k = 1; k <= AA.lregs; ++k) {
-      sprintf(out, "%s %8d", out, k);
+      len += snprintf(out + len, sizeof(out) - len, " %8d", k);
    }
    Display("%s", out);
    if (CO != NULL) fprintf(CO, "%s\n", out);
+
    strcpy(out, "          Pi: ");
+   len = strlen(out);
    for (k = 1; k <= AA.lregs; ++k) {
       sprintf(buf, "%8d", RF[k].pn);
-      sprintf(out, "%s %8s", out, RF[k].pn == -1 ? "-" : buf);
+      len += snprintf(out + len, sizeof(out) - len, " %8s", RF[k].pn == -1 ? "-" : buf);
    }
    Display("%s", out);
    if (CO != NULL) fprintf(CO, "%s\n", out);
+
    strcpy(out, "          Qi: ");
+   len = strlen(out);
    for (k = 1; k <= AA.lregs; ++k) {
-      sprintf(out, "%s %8d", out, RF[k].qi);
+      len += snprintf(out + len, sizeof(out) - len, " %8d", RF[k].qi);
    }
    Display("%s", out);
    if (CO != NULL) fprintf(CO, "%s\n", out);
+
    strcpy(out, "          Vi: ");
+   len = strlen(out);
    for (k = 1; k <= AA.lregs; ++k) {
-      sprintf(out, "%s %08X", out, RF[k].vi);
+      len += snprintf(out + len, sizeof(out) - len, " %08X", RF[k].vi);
    }
    Display("%s", out);
    if (CO != NULL) fprintf(CO, "%s\n", out);
 
    //==============================================================
+   /* Print header */
    strcpy(out1, ""); for (k = 1; k <= SCREENWIDTH; ++k) { strcat(out1, "="); } Display("%s", out1);
 
-   /* Print header */
    strcpy(out, "STAGES:               ");
+   // Stage acronyms
+   len = strlen(out);
    for (st = st_ini; st <= st_end; ++st) {
-      sprintf(out, "%s  %c", out, STAGE_ACR[st][0]);
+      len += snprintf(out + len, sizeof(out) - len, "  %c", STAGE_ACR[st][0]);
    }
+   // FUs acronyms
    strcpy(out1, "");
+   len = strlen(out1);
    for (fa = 1; fa <= MAXFT; ++fa) {
-      sprintf(out1, "%s%3s", out1, FUNAME[fa]);
+      len += snprintf(out1 + len, sizeof(out1) - len, "%3s", FUNAME[fa]);
    }
    Display("%s RENAMED-STR    INSTRUCTION-WINDOW                   REORDER-BUFFER         %s", out, out1);
    if (CO != NULL) fprintf(CO, "%s RENAMED-STR    INSTRUCTION-WINDOW                REORDER-BUFFER         %s\n", out, out1);
+
+   // TOTAL SLOTS
    strcpy(out, "TOTAL SLOTS:          ");
+   len = strlen(out);
    for (st = st_ini; st <= st_end; ++st) {
       count = 0;
-      sprintf(out, "%s%3d", out, STAGE_SIZ[st]);
+      len += snprintf(out + len, sizeof(out) - len, "%3d", STAGE_SIZ[st]);
    }
+
    strcpy(out1, "");
+   len = 0;
    for (fa = 1; fa <= MAXFT; ++fa) {
-      sprintf(out1, "%s%3d", out1, FA[fa].tot);
+      len += snprintf(out1 + len, sizeof(out1) - len, "%3d", FA[fa].tot);
    }
    Display("%s %-14d %-36d %-16d       %20s", out, AA.pregs, AA.win_size, AA.rob_size, out1);
    if (CO != NULL) fprintf(CO, "%s %-13d %-36d %-16d       %20s\n", out, AA.pregs, AA.win_size, AA.rob_size, out1);
+
+   // BUSY SLOTS
    strcpy(out, "BUSY SLOTS:           ");
+   len = strlen(out);
    for (st = st_ini; st <= st_end; ++st) {
       count = 0;
-      for (j = 0; j < STAGE_SIZ[st]; ++j ) if (STAGE_BUF[st][j].delay > 0) ++count;
-      sprintf(out, "%s%3d", out, count);
+      for (j = 0; j < STAGE_SIZ[st]; ++j)
+         if (STAGE_BUF[st][j].delay > 0)
+            ++count;
+      len += snprintf(out + len, sizeof(out) - len, "%3d", count);
    }
+
    strcpy(out1, "");
+   len = 0;
    for (fa = 1; fa <= MAXFT; ++fa) {
-      sprintf(out1, "%s%3d", out1, FA[fa].busy2);
+      len += snprintf(out1 + len, sizeof(out1) - len, "%3d", FA[fa].busy2);
    }
    Display("%s %-14d %-36d %-16d       %20s", out, PRAllocated, IWAllocated, RBAllocated, out1);
    if (CO != NULL) fprintf(CO, "%s %-13d %-36d %-16d       %20s\n", out, PRAllocated, IWAllocated, RBAllocated, out1);
+
+   // STALLS
    strcpy(out, "STALLS:               ");
+   len = strlen(out);
    for (st = st_ini; st <= st_end; ++st) {
-      sprintf(out, "%s%3d", out, Stall[st]);
+      len += snprintf(out + len, sizeof(out) - len, "%3d", Stall[st]);
    }
+
    strcpy(out1, "");
+   len = 0;
    for (fa = 1; fa <= MAXFT; ++fa) {
-      sprintf(out1, "%s%3d", out1, FA[fa].stalls);
+      len += snprintf(out1 + len, sizeof(out1) - len, "%3d", FA[fa].stalls);
    }
    Display("%s %-14d %-36d %-16d       %20s", out, PRStalls, IWStalls, RBStalls, out1);
    if (CO != NULL) fprintf(CO, "%s %-13d %-36d %-16d       %20s\n", out, PRStalls, IWStalls, RBStalls, out1);
+
    n1 = LQElems;
    m1 = SQElems;
 
@@ -2833,16 +2879,16 @@ int dump_pipeline(int stage, int ic_ini, int ic_end)
       if (ip->opcode != NIN) {
 
          // printing CYCLE TABLE
+         print_lregs_args(ip, reg, "");
+         len = strlen(out);
          for (st = st_ini; st <= st_end; ++st) {
             tc = ip->t[st];
             if (tc >= G.start_ck) {
-               sprintf(out, "%s %2d", out, tc);
+               len += snprintf(out + len, sizeof(out) - len, " %2d", tc);
             } else {
-               sprintf(out, "%s   ",out);
+               len += snprintf(out + len, sizeof(out) - len, "   ");
             }
          }
-         print_lregs_args(ip, reg, "");
-
          print2_pregs_args(ip, out1);
 
          /* IW */

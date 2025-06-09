@@ -1,6 +1,21 @@
 # freess
 RISC-V Superscalar Educational Simulator based on Tomasulo's Algorithm
 
+# Tutorial/Paper
+This paper has been published at the Workshop on Computer Architecture Education 2025 (at ISCA-2025).
+Please cite this work via this reference:
+```
+@InProceedings{Giorgi25-wcae,
+  author = {Giorgi, Roberto},
+  title = {{FREESS}: An Educational Simulator of a {RISC-V}-Inspired Superscalar Processor Based on Tomasulo’s Algorithm},
+  booktitle = "ACM Workshop on Computer Architecture Education (WCAE-25)",
+  address = "Tokyo, Japan",
+  pages = "1-8",
+  month = "jun",
+  year = "2025"
+}
+```
+
 ![FREESS Processor Architecture](processor_diagram.png "Block diagram of the processor")
 
 # to compile
@@ -63,3 +78,16 @@ the resulting code is the following (i.e., filename 'program1':
 ```
 
 ![Main Processor Parameters](parameters.png "Main parameters of the FREESS processor")
+
+# NEW (wasm branch)
+In addition here is a WebAssembly version!
+
+# to compile
+make wasm
+
+# to run the examples
+copy index.html freess.js freess.wasm to your web server and just access it via a web browser.
+
+# WARNING
+This is work in progress: if you have comments or would like to contribute, you are welcome!
+

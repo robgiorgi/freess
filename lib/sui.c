@@ -107,8 +107,10 @@ void SUIConstr1(void (*md)(void), const char *app[], char *ifn, int nolog)
 
    /* Setup signal handlers */
    signal(SIGSEGV, sigsui11);
-   #ifndef __Linux__
+   #ifndef _Linux_
       #define SIGUNUSED 31
+   #else
+      #define SIGUNUSED SIGSYS
    #endif
    for (k = 1; k < SIGUNUSED && k != SIGSEGV; ++k) signal(k, sigsui);
 
@@ -314,9 +316,12 @@ void ExitProg(char *fmt, ...)
    if (*tlogname != '\0') if (0 != TransformLog()) printf("%s", errmsg);
 
    Log("Exiting program.");
-   if (n == 0)
-      if (buf[1] != '\0')
-         if (fplog) Log("%s", errmsg + 1); else printf("%s\n", errmsg + 1);
+   if (n == 0) {
+      if (buf[1] != '\0') {
+         if (fplog) { Log("%s", errmsg + 1); }
+         else { printf("%s\n", errmsg + 1); }
+      }
+   }
 
    if (fplog) { fclose(fplog); fplog = NULL; }
    va_end(ap);
@@ -1016,32 +1021,26 @@ int IsLNumVal(char *str, ulng *v)
  *---------------------------------------------------------------------------*/
 void Mysysopen(char *strin)
 {
-   char aaa[10*MAXLINELEN];
-   int res1, res2;
+#ifdef __EMSCRIPTEN__
+  // In WebAssembly (Node.js or Browser), no system() available.
+  // Directly open the input file as Mysysfp.
+  Mysysfp = fopen("/program-ex1", "r"); // hard-coded embedded file
+  if (Mysysfp == NULL) {
+    ExitProg("Mysysopen: Failed to open /program-ex1 in Emscripten virtual FS.");
+  }
+#else
+  char aaa[10*MAXLINELEN];
+  int res1, res2;
 
-   /* printf("SUI: strin=%s\n", strin); */
-/*
-   tmpnam(Mysystn);
-   if (NULL == res1)
-      ExitProg("Cannot create tmp file through mktemp().");
-   sprintf(aaa, "%s; set| cat >>%s", strin, Mysystn);
-   system(aaa);
-   if (NULL == (Mysysfp = fopen(Mysystn, "rt"))) {
-      exit(0);
-   }
-*/
-   strcpy(Mysystn, "suigenXXXXXX");
-   res1 = mkstemp(Mysystn);
-   if (-1 == res1)
-      ExitProg("Mysysopen: Cannot create tmp file through mkstemp().");
-   sprintf(aaa, "%s; set| cat >>%s", strin, Mysystn);
-   res2 = system(aaa);
-   if (0 != res2)
-      ExitProg("Mysysopen: Error while issuing system command '%s'.", aaa);
-   if (NULL == (Mysysfp = fdopen(res1, "rt"))) {
-      exit(0);
-   }
-/**/
+  strcpy(Mysystn, "suigenXXXXXX");
+  res1 = mkstemp(Mysystn);
+  if (-1 == res1)
+    ExitProg("Mysysopen: Cannot create tmp file through mkstemp().");
+
+  sprintf(aaa, "%s; set| cat >>%s", strin, Mysystn);
+  res2 = system(aaa);
+  Mysysfp = fdopen(res1, "rt");
+#endif
 }
 
 /*---------------------------------------------------------------------------*
@@ -1053,7 +1052,9 @@ void Mysysopen(char *strin)
 void Mysysclose(void)
 {
    fclose(Mysysfp);
+#ifndef __EMSCRIPTEN__
    unlink(Mysystn);
+#endif
 }
 
 /*---------------------------------------------------------------------------*
@@ -1073,10 +1074,11 @@ void Mysyspars(char *resu, char *key)
    /* printf("SUI: key=%s\n", key); */
    aux[0] = '\0';
    fseek(Mysysfp, 0L, SEEK_SET);
-   while (!feof(Mysysfp)) {
-      cnt = fread(c, 1, 1, Mysysfp);
-      if (cnt != 1)
-         ExitProg("Mysyspars: Error while reading from Mysysfp.");
+//   while (!feof(Mysysfp)) {
+//      cnt = fread(c, 1, 1, Mysysfp);
+//      if (cnt != 1)
+//         ExitProg("Mysyspars: Error while reading from Mysysfp.");
+    while ((cnt = fread(c, 1, 1, Mysysfp)) == 1) {
       if (*c != '=' && *c != '\n') {
          strcat(aux, c);
       }
