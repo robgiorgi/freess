@@ -86,7 +86,8 @@ In addition here is a WebAssembly version!
 make wasm
 
 # to run the examples
-copy index.html freess.js freess.wasm to your web server and just access it via a web browser.
+Copy index.html freess.js freess.wasm to your web server and just access it via a web browser.
+or you can use it directly from here [https://robgiorgi.github.io/freess/](https://robgiorgi.github.io/freess/)
 
 # WARNING
 This is work in progress: if you have comments or would like to contribute, you are welcome!
