@@ -18,8 +18,23 @@ Please cite this work via this reference:
 
 ![FREESS Processor Architecture](processor_diagram.png "Block diagram of the processor")
 
+# pre-requisites (dependencies in Ubuntu)
+```
+sudo apt install build-essential git vim
+```
+# pre-requisites (dependencies in Fedora)
+```
+sudo dnf install @development-tools git vim
+```
 # to compile
+```
 make
+```
+# to check that it works
+```
+make test
+```
+It should print something like '* TEST1 PASSED ...'
 
 # to run the examples
 ```
