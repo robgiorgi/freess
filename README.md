@@ -97,7 +97,7 @@ the resulting code is the following (i.e., filename 'program1':
 # NEW (wasm branch)
 In addition here is a WebAssembly version!
 
-# Prerequistes: same as above and additionally (if you want to re-generate the WebAssembly)i via EMSCRIPTEN
+# Prerequistes: same as above and additionally (if you want to re-generate the WebAssembly via EMSCRIPTEN)
 ```
 git clone https://github.com/emscripten-core/emsdk.git
 cd emsdk
