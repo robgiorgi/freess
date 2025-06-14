@@ -97,8 +97,7 @@ the resulting code is the following (i.e., filename 'program1':
 # NEW (wasm branch)
 In addition here is a WebAssembly version!
 
-# Prerequistes: same as above and additionally (if you want to re-generate the WebAssembly)
-# Quickstart instructions for compiling into WASM via EMSCRIPTEN
+# Prerequistes: same as above and additionally (if you want to re-generate the WebAssembly)i via EMSCRIPTEN
 ```
 git clone https://github.com/emscripten-core/emsdk.git
 cd emsdk
@@ -108,9 +107,11 @@ cd emsdk
 ```
 
 # to compile
+```
 cd freess
 git checkout wasm
 make wasm
+```
 
 # to run the examples
 Copy index.html freess.js freess.wasm to your web server and just access it via a web browser.
