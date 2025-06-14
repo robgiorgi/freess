@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>FREESS</title>
+<style>
+  .param-input {
+    width: 35px;
+    margin: 2px;
+    border: 1px solid #ccc;  /* consistent thin border */
+    background-color: white; /* default white */
+  }
+  .param-input::placeholder {
+    color: #999;  /* shaded default */
+    width: 35px;  /* reduced width for inputs */
+  }
+  .highlighted {
+    background-color: yellow; /* yellow if value set by example */
+  }
+  .param-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .param-label {
+    display: inline-block;
+    width: 40px;  /* fixed width for labels */
+    text-align: right;
+  }  
+  .side-by-side {
+    display: flex;
+    gap: 20px;  /* Space between the two sections */
+    align-items: flex-start;  /* Top alignment */
+    /* limit overall width so the param column stays close to textarea */
+    max-width: 700px;
+  }
+  .program-container, .params-container {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: wrap;
+  }
+  textarea {
+    width: 20ch;  /* Exactly 20 characters wide */
+  }
+</style>
+
+</head>
+<body>
+  <h1>
+    FREESS (WebAssembly beta version)
+    <a href="https://github.com/robgiorgi/freess" target="_blank" style="font-size: 0.6em; margin-left: 1em;">[GitHub Repository]</a>
+  </h1>
+
+  <!-- Buttons to load examples -->
+  <button onclick="loadExample(1)">Load Example 1</button>
+  <button onclick="loadExample(2)">Load Example 2</button>
+  <button onclick="loadExample(3)">Load Example 3</button>
+<div class="side-by-side">
+  <div class="program-container">
+    <h3>Program:</h3>
+    <textarea id="program-input" rows="12"></textarea>
+    <br>
+    <button onclick="runSimulation()">Run Simulation</button>
+  </div>
+
+  <div class="params-container">
+    <h3>Simulation Parameters:</h3>
+    <div class="param-group">
+      <span class="param-label">-pw</span> <input id="pw" class="param-input" type="number" placeholder="4" min="1" max="999">
+      <span class="param-label">-wins</span> <input id="wins" class="param-input" type="number" placeholder="16" min="1" max="999">
+      <span class="param-label">-pregs</span> <input id="pregs" class="param-input" type="number" placeholder="24" min="1" max="999">
+      <span class="param-label">-robs</span> <input id="robs" class="param-input" type="number" placeholder="16" min="1" max="999">
+    </div>
+    <div class="param-group">
+      <span class="param-label">-lqs</span> <input id="lqs" class="param-input" type="number" placeholder="1" min="1" max="999">
+      <span class="param-label">-sqs</span> <input id="sqs" class="param-input" type="number" placeholder="1" min="1" max="999">
+      <span class="param-label">-llat</span> <input id="llat" class="param-input" type="number" placeholder="2" min="0" max="999">
+      <span class="param-label">-slat</span> <input id="slat" class="param-input" type="number" placeholder="1" min="0" max="999">
+    </div>
+    <div class="param-group">
+      <span class="param-label">-cw</span> <input id="cw" class="param-input" type="number" placeholder="4" min="1" max="999">
+      <span class="param-label">-dw</span> <input id="dw" class="param-input" type="number" placeholder="4" min="1" max="999">
+      <span class="param-label">-iw</span> <input id="iw" class="param-input" type="number" placeholder="4" min="1" max="999">
+      <span class="param-label">-fw</span> <input id="fw" class="param-input" type="number" placeholder="4" min="1" max="999">
+    </div>
+    <div class="param-group">
+      <span class="param-label">-afu</span> <input id="afu" class="param-input" type="number" placeholder="4" min="1" max="999">
+    </div>
+  </div>
+</div>
+
+  <h3>Output:</h3>
+  <pre id="output"></pre>
+
+  <script src="freess.js"></script>
+  <script>
+function loadExample(exampleNumber) {
+  const examples = {
+    1: {
+      program: `#! 1
+#x 1 10
+#x 4 40
+#x 5 50
+#x 6 60
+1  3  4  0   # LW
+1  7  5  128 # LW
+7  7  7  3   # MUL
+6  1  1  -1  # ADDI
+2  7  6  256 # SW
+6  2  2  8   # ADDI
+4  1  0  -7  # BNE`,
+      params: { robs: 99, lqs: 3, sqs: 3, afu: 1 }
+    },
+    2: {
+      program: `#! 1
+1  2  1   0
+6  2  2   1
+2  2  1   0
+6  1  1   4
+4  2  0  -5`,
+      params: { wins: 12, pregs: 12, robs: 12, lqs: 3, sqs: 3, llat: 1 }
+    },
+    3: {
+      program: `#! 1
+1  2  1   0
+6  2  2   1
+2  2  1   0
+6  1  1   4
+4  2  0  -5`,
+      params: { wins: 12, robs: 12, pregs: 12, cw: 1, pw: 2, dw: 2, iw: 2, fw: 2, lqs: 2, sqs: 2, llat: 1, slat: 1, afu: 1 }
+    }
+  };
+
+  const example = examples[exampleNumber];
+  document.getElementById('program-input').value = example.program;
+
+  const paramIds = ["pw", "wins", "pregs", "robs", "lqs", "sqs", "llat", "afu", "cw", "dw", "iw", "fw", "slat"];
+  paramIds.forEach(param => {
+    const input = document.getElementById(param);
+    if (param in example.params) {
+      input.value = example.params[param];
+      input.classList.add('highlighted');
+    } else {
+      input.value = "";  // show default shaded
+      input.classList.remove('highlighted');
+    }
+  });
+}
+    function runSimulation() {
+      document.getElementById('output').textContent = "Running simulation...";
+      // Load the program text
+      const program = document.getElementById('program-input').value;
+      // Prepare arguments
+      const args = [];
+      const paramIds = ["pw", "wins", "pregs", "robs", "lqs", "sqs", "llat", "afu", "cw", "dw", "iw", "fw", "slat"];
+      paramIds.forEach(param => {
+        const input = document.getElementById(param);
+        if (input.value) {
+          args.push("-" + param, input.value);
+        }
+      });
+      args.push("-exe", "program-ex1"); // file to execute
+
+      // Provide the program content to the FS
+      freessModule({
+        arguments: args,
+        print: text => document.getElementById('output').textContent += text + "\n",
+        printErr: text => document.getElementById('output').textContent += "[stderr] " + text + "\n",
+        onRuntimeInitialized: function() {
+          this.FS.chdir('/');
+          this.FS.writeFile('/program-ex1', program);
+          this.callMain(args);
+	  this.exit(0);  // clean exit to avoid keepRuntimeAlive message
+        }
+      });
+    }
+// Add listeners to all param inputs to detect changes
+document.querySelectorAll('.param-input').forEach(input => {
+  input.addEventListener('input', () => {
+    // Check if the value differs from the placeholder (the default value)
+    if (input.value && input.value !== input.placeholder) {
+      input.classList.add('highlighted'); // Make background yellow
+    } else {
+      input.classList.remove('highlighted'); // Remove yellow highlight
+    }
+  });
+});
+
+  </script>
+</body>
+</html>
+

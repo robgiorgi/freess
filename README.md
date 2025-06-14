@@ -2,7 +2,7 @@
 RISC-V Superscalar Educational Simulator based on Tomasulo's Algorithm
 
 # Tutorial/Paper
-[This paper has been published at the Workshop on Computer Architecture Education 2025 (at ISCA-2025).](https://www.dii.unisi.it/~giorgi/papers/Giorgi25-wcae.pdf)
+[This paper has been published at the Workshop on Computer Architecture Education 2025 (at ISCA-2025).](https://doi.org/10.48550/arXiv.2506.07665)
 Please cite this work via this reference:
 ```
 @InProceedings{Giorgi25-wcae,
@@ -93,3 +93,29 @@ the resulting code is the following (i.e., filename 'program1':
 ```
 
 ![Main Processor Parameters](parameters.png "Main parameters of the FREESS processor")
+
+# NEW (wasm branch)
+In addition here is a WebAssembly version!
+
+# Prerequistes: same as above and additionally (if you want to re-generate the WebAssembly)
+# Quickstart instructions for compiling into WASM via EMSCRIPTEN
+```
+git clone https://github.com/emscripten-core/emsdk.git
+cd emsdk
+./emsdk install latest
+./emsdk activate latest
+<follow instructions on the screen to setup your enviroment variables>
+```
+
+# to compile
+cd freess
+git checkout wasm
+make wasm
+
+# to run the examples
+Copy index.html freess.js freess.wasm to your web server and just access it via a web browser.
+or you can use it directly from here [https://robgiorgi.github.io/freess/](https://robgiorgi.github.io/freess/)
+
+# WARNING
+This is work in progress: if you have comments or would like to contribute, you are welcome!
+
