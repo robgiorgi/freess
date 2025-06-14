@@ -44,7 +44,7 @@ tool: $(OBJS)
 	@echo "------------------- Building TOOL BINARY"
 	$(CC) $(OBJS) $(CFLAGS1) -o $(TGT)$(CCSS) $(CFLAGS2)
 
-wasm:
+wasm: clean
 	-@mkdir -p Release Debug
 	@echo ""
 	@echo "------------------- Building LIBRARY for WebAssembly"
@@ -72,19 +72,30 @@ clean:
 	@echo ""
 	@echo "------------------- Cleaning build files"
 	-rm -rf Release Debug *.ln $(TGT) $(TGT)d $(TGT).exe $(TGT).cpe $(TGT).def \
-	           $(TGT).c $(TGT).h $(TGT).tem \
-	           freess.js freess.wasm freess.data
+	           $(TGT).c $(TGT).h $(TGT).tem
 	-cd ./lib && $(MAKE) clean || exit 0
 	-mkdir -p Release Debug
 
 veryclean: clean
-	-rm -f $(TGT) $(TGT)d $(TGT).exe $(TGT)ini $(TGT).cpe $(TGT).def
+	-rm -f $(TGT) $(TGT)d $(TGT).exe $(TGT)ini $(TGT).cpe $(TGT).def \
+	           freess.js freess.wasm freess.data
 
 install:
 	cd .. && $(MAKE) install && cd $(TGT)
 
-test:
-	$(MAKE)
+test: all
+	@{ a=`./run-ex1.sh -int no|tail -2`;g=`echo "$$a"|tail -1`; \
+           c=`echo "$$a"|head -1|sed 's/.*CK=\([0-9][0-9]*\).*/\1/g'`; \
+	   if [ "$$g" = "Goodbye." -a "$$c" = "20" ]; then echo "* TEST1: PASSED"; \
+	   else echo "* TEST1: FAILED"; fi; }
+	@{ a=`./run-ex2.sh -int no|tail -2`;g=`echo "$$a"|tail -1`; \
+           c=`echo "$$a"|head -1|sed 's/.*CK=\([0-9][0-9]*\).*/\1/g'`; \
+	   if [ "$$g" = "Goodbye." -a "$$c" = "11" ]; then echo "* TEST2: PASSED"; \
+	   else echo "* TEST2: FAILED"; fi; }
+	@{ a=`./run-ex3.sh -int no|tail -2`;g=`echo "$$a"|tail -1`; \
+           c=`echo "$$a"|head -1|sed 's/.*CK=\([0-9][0-9]*\).*/\1/g'`; \
+	   if [ "$$g" = "Goodbye." -a "$$c" = "14" ]; then echo "* TEST3: PASSED"; \
+	   else echo "* TEST3: FAILED"; fi; }
 	@for i in test*; do \
 	   if [ -d $$i ]; then cd $$i; $(MAKE) test; cd ..; fi \
 	done
