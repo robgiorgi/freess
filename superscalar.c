@@ -369,7 +369,8 @@ static int EST_DYNSTR_SIZE = 0; // Estimated Size of Dynamic Instruction Stream
 #define LSQCOLSTRSIZE   30
 static char **LSQCOLUMN;
 
-char LOGBUF[10000];
+#define LOGBFLEN 10000
+char LOGBUF[LOGBFLEN];
 
 /*------------- INTERNAL FUNCTIONS PROTOTYPES -------------------------------*/
 int read_program(char *progname);
@@ -718,6 +719,33 @@ int Superscalar__Start(int argc, char **argv)
 }
 
 /*---------------------------------------------------------------------------*
+ NAME      : safecat
+ PURPOSE   : Safely concatenate src to dest
+ PARAMETERS:
+ RETURN    :
+ *---------------------------------------------------------------------------*/
+void safecat(char *dest, const char *src, size_t maxlen) {
+   size_t dest_len = strnlen(dest, maxlen);
+
+   // If dest is already too long, forcibly terminate at maxlen - 1
+   if (dest_len >= maxlen - 1) {
+      dest[maxlen - 1] = '\0';
+      return;
+   }
+
+   // Determine how much space is left for src (excluding final '\0')
+   size_t space_left = maxlen - dest_len - 1;
+
+   // Copy as much as possible from src
+   if (space_left > 0) {
+      // Use memcpy for strict control (no scanning of src)
+      size_t src_len = strnlen(src, space_left);
+      memcpy(dest + dest_len, src, src_len);
+      dest[dest_len + src_len] = '\0';
+   }
+}
+
+/*---------------------------------------------------------------------------*
  NAME      : LogStall
  PURPOSE   : Log the reasons of the stall at a certain cycle
  PARAMETERS:
@@ -725,13 +753,15 @@ int Superscalar__Start(int argc, char **argv)
  *---------------------------------------------------------------------------*/
 void LogStall(int *stallcnt, char *stalltype)
 {
+   char msg[SCREENWIDTH];
    char aux[SCREENWIDTH+20];
 
    ++(*stallcnt);
-   sprintf(aux, "@%03d stall due to %s\n", CK, stalltype);
+   safecat(msg, stalltype, SCREENWIDTH); //cut to SCREENWIDTH
+   sprintf(aux, "@%03d stall due to %s\n", CK, msg);
    fprintf(LOGSTALL, "%s", aux);
    fflush(LOGSTALL);
-   strcat(LOGBUF, aux);
+   safecat(LOGBUF, aux, LOGBFLEN);
 }
 
 /*---------------------------------------------------------------------------*
@@ -2644,6 +2674,93 @@ void print_RBEntry(Instruction *ip, char *buf)
 }
 
 /*---------------------------------------------------------------------------*
+ NAME      : fmt_preg
+ PURPOSE   : Helper: Format operand as "Pxx" or "-"
+ PARAMETERS:
+ RETURN    :
+ *---------------------------------------------------------------------------*/
+const char* fmt_preg(int val, char *buf, size_t buflen) {
+    if (val == -1)
+        return "-";
+    snprintf(buf, buflen, "P%-2d", val);
+    return buf;
+}
+
+/*---------------------------------------------------------------------------*
+ NAME      : fmt_idx
+ PURPOSE   : Helper: Format index, e.g. "003)" or "003>"
+ PARAMETERS:
+ RETURN    :
+ *---------------------------------------------------------------------------*/
+void fmt_idx(int winn, char suffix, char *buf, size_t buflen) {
+    snprintf(buf, buflen, "%03d%c", winn, suffix);
+}
+
+/*---------------------------------------------------------------------------*
+ NAME      : fmt_cond_field
+ PURPOSE   : Helper: Format condition field
+ PARAMETERS:
+ RETURN    :
+ *---------------------------------------------------------------------------*/
+const char* fmt_cond_field(int cond, const char *cond_buf) {
+    if (cond == -1)
+        return "-";
+    else if (cond == -2)
+        return ".";
+    else
+        return cond_buf;
+}
+
+/*---------------------------------------------------------------------------*
+ NAME      : build_iwout
+ PURPOSE   : Core formatting for IW or IWB
+ PARAMETERS:
+ RETURN    :
+ *---------------------------------------------------------------------------*/
+void build_iwout(char *out2, size_t outlen, int winn, char suffix,
+	         const char *opcode, const WindowEntry *entry)
+{
+    char buf0[8], buf1[8], buf2[8], buf3[8], buf4[8], buf5[8];
+    char buf_imm[8], buf6[8], buf7[8], buf8[8];
+
+    // Format preg fields
+    const char *op0 = fmt_preg(entry->pi, buf0, sizeof(buf0));
+    const char *op1 = fmt_preg(entry->pj, buf1, sizeof(buf1));
+    const char *op2 = fmt_preg(entry->pk, buf2, sizeof(buf2));
+    snprintf(buf_imm, sizeof(buf_imm), "%-3d", entry->pl);
+    const char *op3 = fmt_preg(entry->pl, buf3, sizeof(buf3));
+    fmt_idx(winn, suffix, buf4, sizeof(buf4));
+
+    // Immediate or register selection
+    const char *op_imm_or_reg = (entry->imv == 1) ? buf_imm : (entry->pl != -1 ? op3 : "-");
+    const char *op5;
+    if (entry->imv == 2) {
+        snprintf(buf5, sizeof(buf5), "%-3d", entry->pk);
+        op5 = buf5;
+    } else {
+        op5 = (entry->pk != -1) ? op2 : "-";
+    }
+
+    // Conditions
+    snprintf(buf6, sizeof(buf6), "%2d", entry->cj);
+    snprintf(buf7, sizeof(buf7), "%2d", entry->ck);
+    snprintf(buf8, sizeof(buf8), "%2d", entry->cl);
+
+    const char *cond6 = fmt_cond_field(entry->cj, buf6);
+    const char *cond7 = fmt_cond_field(entry->ck, buf7);
+    const char *cond8 = fmt_cond_field(entry->cl, buf8);
+
+    // Compose final output line safely
+    snprintf(out2, outlen, "%4s %4s %-3s %-3s %-3s %-3s %2s %2s %2s",
+             buf4, opcode,
+             (entry->pi != -1) ? op0 : "-",
+             (entry->pj != -1) ? op1 : "-",
+             op5,
+             op_imm_or_reg,
+             cond6, cond7, cond8);
+}
+
+/*---------------------------------------------------------------------------*
  NAME      : dump_pipeline
  PURPOSE   : Pretty-printing of pipeline status
  PARAMETERS:
@@ -2656,7 +2773,8 @@ int dump_pipeline(int stage, int ic_ini, int ic_end)
    Instruction *ip, *ip1;
    char out[SCREENWIDTH+2];
    char out1[SCREENWIDTH+2];
-   char out2[SCREENWIDTH+2];
+   #define MAXIWOUT (SCREENWIDTH+2)
+   char out2[MAXIWOUT];
    char out3[SCREENWIDTH+2];
    char out4[SCREENWIDTH+2];
    char reg[SCREENWIDTH+2];
@@ -2847,39 +2965,22 @@ int dump_pipeline(int stage, int ic_ini, int ic_end)
 
          /* IW */
          strcpy(out2, "");
-         if (ip->winn >= 0) {
+	 if (ip->winn >= 0) {
             if (IW[ip->winn].busy) {
-               sprintf(buf0, "P%-2d", IW[ip->winn].pi);
-               sprintf(buf1, "P%-2d", IW[ip->winn].pj);
-               sprintf(buf2, "P%-2d", IW[ip->winn].pk);
-               sprintf(buf, "%-3d", IW[ip->winn].pl);
-               sprintf(buf3, "P%-2d", IW[ip->winn].pl);
-               sprintf(buf4, "%03d)", ip->winn);
-               sprintf(buf5, "%-3d", IW[ip->winn].pk);
-               sprintf(buf6, "%2d", IW[ip->winn].cj);
-               sprintf(buf7, "%2d", IW[ip->winn].ck);
-               sprintf(buf8, "%2d", IW[ip->winn].cl);
-               sprintf (out2, "%4s %4s %-3s %-3s %-3s %-3s %2s %2s %2s", buf4, OPNAME[IW[ip->winn].opcode], IW[ip->winn].pi != -1 ? buf0 : "-", IW[ip->winn].pj != -1 ? buf1 : "-", IW[ip->winn].imv == 2 ? buf5 : (IW[ip->winn].pk != -1 ? buf2 : "-"), IW[ip->winn].imv == 1 ? buf : (IW[ip->winn].pl != -1 ? buf3 : "-"), IW[ip->winn].cj == -1 ? "-" : IW[ip->winn].cj == -2 ? "." : buf6, IW[ip->winn].ck == -1 ? "-" : IW[ip->winn].ck == -2 ? "." : buf7, IW[ip->winn].cl == -1 ? "-" : IW[ip->winn].cl == -2 ? "." : buf8);
+              build_iwout(out2, MAXIWOUT, ip->winn, ')', OPNAME[IW[ip->winn].opcode], &IW[ip->winn]);
             }
             if (IWB[ip->winn].busy) {
-               sprintf(buf0, "P%-2d", IWB[ip->winn].pi);
-               sprintf(buf1, "P%-2d", IWB[ip->winn].pj);
-               sprintf(buf2, "P%-2d", IWB[ip->winn].pk);
-               sprintf(buf, "%-3d", IWB[ip->winn].pl);
-               sprintf(buf3, "P%-2d", IWB[ip->winn].pl);
-               sprintf(buf4, "%03d>", ip->winn);
-               sprintf(buf5, "%-3d", IWB[ip->winn].pk);
-               sprintf(buf6, "%2d", IWB[ip->winn].cj);
-               sprintf(buf7, "%2d", IWB[ip->winn].ck);
-               sprintf(buf8, "%2d", IWB[ip->winn].cl);
-               sprintf (out2, "%4s %4s %-3s %-3s %-3s %-3s %2s %2s %2s", buf4, OPNAME[IWB[ip->winn].opcode], IWB[ip->winn].pi != -1 ? buf0 : "-", IWB[ip->winn].pj != -1 ? buf1 : "-", IWB[ip->winn].imv == 2 ? buf5 : (IWB[ip->winn].pk != -1 ? buf2 : "-"), IWB[ip->winn].imv == 1 ? buf : (IWB[ip->winn].pl != -1 ? buf3 : "-"), IWB[ip->winn].cj == -1 ? "-" : IWB[ip->winn].cj == -2 ? "." : buf6, IWB[ip->winn].ck == -1 ? "-" : IWB[ip->winn].ck == -2 ? "." : buf7, IWB[ip->winn].cl == -1 ? "-" : IWB[ip->winn].cl == -2 ? "." : buf8);
+               build_iwout(out2, MAXIWOUT, ip->winn, '>', OPNAME[IWB[ip->winn].opcode], &IWB[ip->winn]);
+
+               // Copy to ip->iws
                IWB[ip->winn].busy = 0;
-               strcpy(ip->iws, "---- ");
-               strcpy(ip->iws + 5, out2+5);
+               snprintf(ip->iws, 6, "---- ");
+               safecat(ip->iws + 5, out2 + 5, MAXIWOUT - 7);
                ip->winn = -1;
             }
          } else {
-            strcpy(out2, ip->iws);
+           strncpy(out2, ip->iws, MAXIWOUT - 1);
+           out2[MAXIWOUT - 1] = '\0';
          }
 
          /* ROB */
