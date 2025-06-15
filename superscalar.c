@@ -758,7 +758,7 @@ void LogStall(int *stallcnt, char *stalltype)
    char msg[SCREENWIDTH];
    char aux[SCREENWIDTH+20];
 
-   ++(*stallcnt);
+   ++(*stallcnt); *msg = '\0';
    safecat(msg, stalltype, SCREENWIDTH); //cut to SCREENWIDTH
    sprintf(aux, "@%03d stall due to %s\n", CK, msg);
    fprintf(LOGSTALL, "%s", aux);
