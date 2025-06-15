@@ -323,7 +323,7 @@ void ExitProg(char *fmt, ...)
       }
    }
 
-   if (fplog) { fclose(fplog); fplog = NULL; }
+   if (fplog != NULL) { fclose(fplog); fplog = NULL; }
    va_end(ap);
 
    exit(n);
@@ -706,7 +706,7 @@ int TransformLog(void)
    }
 
    /* Close current log file whose name is temporary to flush buffers */
-   fclose(fplog);
+   if (fplog != NULL) fclose(fplog);
 
    /* Create new log file now that i have its name */
    if (NULL == (fplog = fopen(flogname, "wt")))
@@ -726,7 +726,7 @@ int TransformLog(void)
    while (NULL != fgets(buf, MAXBUFFERLEN - 1, fptmp)) fputs(buf, fplog);
 
    /* Close temporary file and remove it */
-   fclose(fptmp);
+   if (fptmp != NULL) fclose(fptmp);
    if (EACCES == remove(tlogname))
    {
       sprintf(errmsg, "Permission denied removing tmp log file '%s'.",
@@ -1051,7 +1051,7 @@ void Mysysopen(char *strin)
  *---------------------------------------------------------------------------*/
 void Mysysclose(void)
 {
-   fclose(Mysysfp);
+   if (Mysysfp != NULL) fclose(Mysysfp);
 #ifndef __EMSCRIPTEN__
    unlink(Mysystn);
 #endif

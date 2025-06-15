@@ -77,7 +77,7 @@ clean:
 	-mkdir -p Release Debug
 
 veryclean: clean
-	-rm -f $(TGT) $(TGT)d $(TGT).exe $(TGT)ini $(TGT).cpe $(TGT).def \
+	-rm -f $(TGT) $(TGT)d $(TGT).exe $(TGT).cpe $(TGT).def \
 	           freess.js freess.wasm freess.data
 
 install:
