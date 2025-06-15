@@ -144,7 +144,7 @@ function loadExample(exampleNumber) {
   const example = examples[exampleNumber];
   document.getElementById('program-input').value = example.program;
 
-  const paramIds = ["pw", "wins", "pregs", "robs", "lqs", "sqs", "llat", "afu", "cw", "dw", "iw", "fw", "slat"];
+  const paramIds = ["pw", "wins", "pregs", "robs", "lqs", "sqs", "llat", "slat", "cw", "dw", "iw", "fw", "ww", "bfu", "afu", "mfu", "alat", "mlat", "lfu", "sfu"];
   paramIds.forEach(param => {
     const input = document.getElementById(param);
     if (param in example.params) {
@@ -162,7 +162,7 @@ function loadExample(exampleNumber) {
       const program = document.getElementById('program-input').value;
       // Prepare arguments
       const args = [];
-      const paramIds = ["pw", "wins", "pregs", "robs", "lqs", "sqs", "llat", "afu", "cw", "dw", "iw", "fw", "slat"];
+      const paramIds = ["pw", "wins", "pregs", "robs", "lqs", "sqs", "llat", "slat", "cw", "dw", "iw", "fw", "ww", "bfu", "afu", "mfu", "alat", "mlat", "lfu", "sfu"];
       paramIds.forEach(param => {
         const input = document.getElementById(param);
         if (input.value) {
@@ -199,4 +199,3 @@ document.querySelectorAll('.param-input').forEach(input => {
   </script>
 </body>
 </html>
-
