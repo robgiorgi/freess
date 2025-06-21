@@ -52,12 +52,12 @@ Table 1 reports the opcodes for the seven supported instructions.
 
 | Mnemonic | Operation Code (opcode) |
 |----------|-------------------------|
-| ADD      | 1                       |
-| ADDI     | 2                       |
-| LW       | 3                       |
-| SW       | 4                       |
-| BEQ      | 5                       |
-| BNE      | 6                       |
+| LW       | 1                       |
+| SW       | 2                       |
+| BEQ      | 3                       |
+| BNE      | 4                       |
+| ADD      | 5                       |
+| ADDI     | 6                       |
 | MUL      | 7                       |
 
 Assuming the code:
