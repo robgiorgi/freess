@@ -11,6 +11,8 @@ MODIFIED BY : RG[14-May-2025]
 #include "main.h"
 #include "superscalar.h"
 
+int INIB = 0;
+
 /*------------- GENERAL DEFINITIONS -----------------------------------------*/
 #define DEFAULT_ITERATIONS 3
 static int STOREWAITS = 0; // whether the STORE occupies the issue buffers until
@@ -34,7 +36,8 @@ static int STOREWAITS = 0; // whether the STORE occupies the issue buffers until
 #define B_FU            5
 #define F_FU            6
 #define X_FU            7
-#define MAXFT           7
+#define D_FU            8
+#define MAXFT           8
 #define MAXFT1          (MAXFT+1)
 #define AFUOP           1
 #define MFUOP           2
@@ -62,7 +65,6 @@ typedef u32 rgid;
 typedef u32 indx;
 typedef u32 valu;
 typedef u32 opcd;
-typedef u32 bool;
 typedef u32 addr;
 
 #define NIN              0  // Not-An-Instruction
@@ -75,6 +77,8 @@ typedef u32 addr;
 #define ADD              5  // 0x3b+0+0x0
 #define ADDI             6  // 0x1b+0
 #define MUL              7  // 0x3b+0+0x1
+#define DIV              8  // 
+#define SGTI             9  // 
 
 //Additional instructions
 #define LOAD2           41  // 0x03+2
@@ -262,7 +266,8 @@ int COMPLETE_END(Instruction *ip);
 int COMMIT_END(Instruction *ip);
  
 /*------------- GLOBAL VARIABLES --------------------------------------------*/
-int bne_count = 0;
+int BRANCH_COUNT = 0;
+int NEEDLN = 0;
 int StreamEnd;
 FILE *CO = NULL; /* Cycle Out file pointer */
 FILE *LOGSTALL = NULL; /* Cycle Out file pointer */
@@ -272,10 +277,12 @@ InstrFormat IAR[] = {
    { FORMAT_R,  ADD,    "ADD",  A_FU },
    { FORMAT_R,  MUL,    "MUL",  M_FU },
    { FORMAT_I,  ADDI,   "ADDI", A_FU },
-   { FORMAT_B,  BNE,    "BEQ",  B_FU },
+   { FORMAT_B,  BEQ,    "BEQ",  B_FU },
    { FORMAT_B,  BNE,    "BNE",  B_FU },
    { FORMAT_I2, LOAD,   "LW",   L_FU },
    { FORMAT_S2, STORE,  "SW",   S_FU },
+   { FORMAT_R,  DIV,    "DIV",  D_FU },
+   { FORMAT_I,  SGTI,   "SGTI", A_FU },
 
    { FORMAT_I3, LOAD2,  "LW",   L_FU },
    { FORMAT_S3, STORE2, "SW",   S_FU },
@@ -284,11 +291,13 @@ InstrFormat IAR[] = {
 
 char *ORDINAL[10] = { "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth" };
 
-char *STAGE_ACR[MAX_STAGE1]     = {"-","F","D","P","I","X","W","C"};
-int STAGE_DELAY[MAX_STAGE1]     = {  0,  1,  1,  1,  0,  1,  1,  1};
-int STAGE_INORDER[MAX_STAGE1]   = {  1,  1,  1,  1,  0,  0,  0,  1};
-int ST_IGNORE_FLAG[MAX_STAGE1]  = {  0,  0,  0,  0,  0,  0,  0,  0};
-int ST_IGNORE_STBUF[MAX_STAGE1] = {  0,  0,  0,  0,  0,  0,  0,  1};
+char *STAGE_ACR[MAX_STAGE1]     = { "-","F","D","P","I","X","W","C"};
+int STAGE_DELAY[MAX_STAGE1]     = {  0,  1,  1,  1,  0,  1,  1,  1 };
+int STAGE_INORDER[MAX_STAGE1]   = {  1,  1,  1,  1,  0,  0,  0,  1 };
+//int ST_BLOCK_IGNORE[MAX_STAGE1]  = {  0,  0,  0,  0,  0,  0,  0,  0 };
+int ST_BLOCK_IGNORE[MAX_STAGE1] = {  0,  0,  0,  0,  0,  0,  0,  1 };
+//int ST_IGNORE_STBUF[MAX_STAGE1] = {  0,  0,  0,  0,  0,  0,  0,  1 };
+int ST_IGNORE_STBUF[MAX_STAGE1] = {  0,  0,  0,  0,  0,  0,  0,  0 };
 char *STAGE_NAME[MAX_STAGE1]    = {"-","FETCH","DECODE","DISPATCH","ISSUE","EXECUTE","COMPLETE","COMMIT"};
 Stagedo_p STAGE_DO[MAX_STAGE1]  = {NULL,FETCH_DO,RENAME_DO,DISPATCH_DO,ISSUE_DO,EXECUTE_DO,COMPLETE_DO,COMMIT_DO};
 Stagedo_p STAGE_END[MAX_STAGE1] = {NULL,FETCH_END,RENAME_END,DISPATCH_END,ISSUE_END,EXECUTE_END,COMPLETE_END,COMMIT_END};
@@ -333,9 +342,7 @@ int SQFull;
 int SQElems;
 ROBEntry *RB; /* Reorder Buffer */
 FArray	*FA; /* Array of Functional units */
-char *FUNAME[] = {"-", "A", "M", "L", "S", "B", "F", "X"};
-Instruction **CB; /* Complete Buffer */
-int CBHead; 
+char *FUNAME[] = {"-", "A", "M", "L", "S", "B", "F", "X", "D"};
 
 InstructionSlot *STAGE_BUF[MAX_STAGE1];
 int	STAGE_SIZ[MAX_STAGE1];
@@ -439,7 +446,8 @@ int Superscalar__Constr(void)
    if (FA == NULL) ExitProg("Cannot allocate Functional Unit Array");
    FA[N_FU].tot = 1;		FA[N_FU].inilatency = 2;		FA[N_FU].pipe = 1;
    FA[A_FU].tot = AA.int_fu;	FA[A_FU].inilatency = 1 + AA.a_lat;	FA[A_FU].pipe = 1;
-   FA[M_FU].tot = AA.im_fu;	FA[M_FU].inilatency = 1 + AA.im_lat;	FA[M_FU].pipe = AA.im_pipe;
+   FA[M_FU].tot = AA.im_fu;	FA[M_FU].inilatency = (AA.im_pipe) + AA.im_lat;	FA[M_FU].pipe = AA.im_pipe;
+   FA[D_FU].tot = AA.id_fu;	FA[D_FU].inilatency = (AA.id_pipe) + AA.id_lat;	FA[D_FU].pipe = AA.id_pipe;
    FA[L_FU].tot = AA.l_fu;	FA[L_FU].inilatency = 0 + AA.l_lat; 	FA[L_FU].pipe = AA.l_pipe;
    FA[S_FU].tot = AA.s_fu;	FA[S_FU].inilatency = 0 + AA.s_lat;	FA[S_FU].pipe = AA.s_pipe;
    FA[B_FU].tot = AA.b_fu;	FA[B_FU].inilatency = 1 + AA.b_lat;	FA[B_FU].pipe = 1;
@@ -488,6 +496,7 @@ int Superscalar__Constr(void)
       STAGE_BUF[st] = (InstructionSlot *) Malloc(STAGE_SIZ[st] * (sizeof(InstructionSlot)));
       if (STAGE_BUF[st] == NULL) ExitProg("Cannot allocate %s Buffer", STAGE_NAME[st]);
       STAGE_LAST[st] = -1;
+      // Initialize stage-buffer slots
       for (k = 0; k < STAGE_SIZ[st]; ++k) {
           STAGE_BUF[st][k].ip = NULL;
           STAGE_BUF[st][k].delay = 0;
@@ -498,12 +507,15 @@ int Superscalar__Constr(void)
 
    DYNSTREAM = Queue__Constr();
 
+   /* Init NULL instruction */
    NULL_Instruction.opcode = NIN;
    NULL_Instruction.rs1    = -1;
    NULL_Instruction.rs2    = -1;
    NULL_Instruction.rs3    = -1;
    NULL_Instruction.rd     = -1;
    NULL_Instruction.imv    = 0;
+
+   /* Init Stall map */
    for (k = 0; k < MAX_STAGE1; ++k) Stall[k] = 0;
 
    /* Register Map*/
@@ -523,12 +535,6 @@ int Superscalar__Constr(void)
       RF[1].vi = 0x1000;
       RF[3].vi = 0x3000;
    }
-
-   /* Complete Buffer */
-   CB = (Instruction **) Malloc((AA.w_width) * sizeof(RegFile));
-   if (CB == NULL) ExitProg("Cannot allocate Complete Buffer");
-   for (k = 0; k < AA.w_width; ++k) { CB[k] = &NULL_Instruction; }
-   CBHead = 0;
 
    // clean LOGBUF
    *LOGBUF='\0';
@@ -558,6 +564,17 @@ void Superscalar__Destru(void)
    Free(RF);
    Free(IW);
    Free(RB);
+}
+
+/*---------------------------------------------------------------------------*
+ NAME      : dbgln
+ PURPOSE   : Helper function
+ PARAMETERS:
+ RETURN    :
+ *---------------------------------------------------------------------------*/
+void dbgln(char *s)
+{
+    if (debug) { printf("%s", s); if (NEEDLN) { printf("\n"); fflush(stdout); NEEDLN = 0; } }
 }
 
 /*---------------------------------------------------------------------------*
@@ -684,13 +701,13 @@ int Superscalar__Start(int argc, char **argv)
    print_hypothesis();
 
    while (!IsEnd) {
-      if (verbose) printf("\n====== STARTING CYCLE %d ===================================\n", CK);
+      if (verbose) Display("====== STARTING CYCLE %d ===================================", CK);
       sprintf(fn, "cycle%03d.txt", CK);
       if (G.batch) { CO = FOpen(fn, "w+", &fc); }
       for (st = MAX_STAGE; st > 0; --st) {
          if (STAGE_DELAY[st - 1] == 0 && st > 1) { 
             Stage(st - 1);
-            Stage(st);
+            if (INIB == 0) Stage(st); // Merge stages unless INIB != 0
             --st;
          } else {
             Stage(st);
@@ -699,13 +716,13 @@ int Superscalar__Start(int argc, char **argv)
 
       if (!G.silent) {
          dump_pipeline(ALLSTAGES, 0, IC-1);
-         Display("------------------------------------------------- Press ENTER to continue (PC=%d,IC=%d,CK=%d,CTOT=%d,IPC=%3.2f)...", PC, IC, CK, CK + 1, (float)IC/(CK + 1 + 0.000000001));
-         Display(LOGBUF); *LOGBUF='\0';
+         Display("------------------------------------------------- Press ENTER to continue (PC=%d,IC=%d,CK=%d,CTOT=%d,IPC=%3.2f)...", PC, IC, CK, CK + 1 - G.start_ck, (float)IC/(CK + 1 - G.start_ck + 0.000000001));
+         if (strlen(LOGBUF) > 0) Display(LOGBUF); *LOGBUF='\0';
       }
       if (G.interactive && ! G.silent) {
 #ifndef __EMSCRIPTEN__
          ret = scanf("%c", c);
-	 if (ret == 0) printf("\n"); //i.e., do nothing
+	 if (ret == 0) printf(""); //i.e., do nothing
 #endif
       }
       if (G.batch) { if (CO != NULL) fclose(CO); }
@@ -887,7 +904,7 @@ int Dispatch_STAGE(void) {
 
 
    switch(op) {
-      case L_FU: case S_FU: case M_FU: case A_FU:
+      case L_FU: case S_FU: case M_FU: case D_FU: case A_FU:
          if (RF[rs].qi != 0) { RS[r].QJ = RF[rs].qi; } else {  RS[r].VJ = RF[rs].vi;  RS[r].QJ =0; }
          if (RF[rt].qi != 0) { RS[r].QK = RF[rt].qi; } else {  RS[r].VK = RF[rt].vi;  RS[r].QK =0; }
          break;
@@ -920,6 +937,7 @@ int Issue_STAGE(void) {
 
          switch (op) {
             case M_FU: if (RS[r].QJ == 0 && RS[r].QK == 0) { RS[r].BUSY = 0; ExecM(fu, r); } break;
+            case D_FU: if (RS[r].QJ == 0 && RS[r].QK == 0) { RS[r].BUSY = 0; ExecM(fu, r); } break;
             case L_FU: if (RS[r].QJ == 0 && RS[r].QK == 0) { RS[r].BUSY = 0; ExecL(fu, r); } break;
             case A_FU: if (RS[r].QJ == 0 && RS[r].QK == 0) { RS[r].BUSY = 0; ExecA(fu, r); } break;
             case S_FU: if (RS[r].QJ == 0 && RS[r].QK == 0) { RS[r].BUSY = 0; ExecS(fu, r); } break;
@@ -1247,7 +1265,7 @@ int ReleaseFU(Instruction *ip)
    FUnit *fu, *ful;
 
    if (verbose) printf("  --> ReleaseFU: ");
-   if (ip == NULL) { printf("\n"); return (1); }
+   if (verbose) if (ip == NULL) { printf("\n"); return (1); }
    t = ip->optype;
    if (t == S_FU && AA.uni_lsu) t = L_FU;
 
@@ -1260,8 +1278,8 @@ int ReleaseFU(Instruction *ip)
             if (ful->busy1 == 1) {
                if (verbose) { nldone = 0; printf(", %d:%4s/%03d", j, OPNAME[fu->ip->opcode], fu->ip->CIC); }
 //if (!STOREWAITS) {
-               if ((ful->ip)->store == 1) { nldone = 1; printf("\n"); full = PushSQ(ful->ip); }
-               if ((ful->ip)->store == 0) { nldone = 1; printf("\n"); full = PushLQ(ful->ip); }
+               if ((ful->ip)->store == 1) { nldone = 1; if (verbose) printf("\n"); full = PushSQ(ful->ip); }
+               if ((ful->ip)->store == 0) { nldone = 1; if (verbose) printf("\n"); full = PushLQ(ful->ip); }
 //               nldone = 1; printf("\n"); full = PushLQ(ful->ip);
                if (!full) {
                   ful->busy1 = 0;
@@ -1276,8 +1294,8 @@ int ReleaseFU(Instruction *ip)
             if (ful->busy1 == 1) {
                if (verbose) { nldone = 0; printf(", %d:%4s/%03d", j, OPNAME[fu->ip->opcode], fu->ip->CIC); }
 //if (!STOREWAITS) {
-               if ((ful->ip)->store == 1) { nldone = 1; printf("\n"); full = PushSQ(ful->ip); }
-               if ((ful->ip)->store == 0) { nldone = 1; printf("\n"); full = PushLQ(ful->ip); }
+               if ((ful->ip)->store == 1) { nldone = 1; if (verbose) printf("\n"); full = PushSQ(ful->ip); }
+               if ((ful->ip)->store == 0) { nldone = 1; if (verbose) printf("\n"); full = PushLQ(ful->ip); }
 //               nldone = 1; printf("\n"); full = PushSQ(ful->ip);
                if (!full) {
                   ful->busy1 = 0;
@@ -1290,7 +1308,7 @@ int ReleaseFU(Instruction *ip)
             break;
         default:
            if (fu->busy1 == 1) {
-              if (verbose) { nldone = 0; printf(", %d:%4s/%03d", j, OPNAME[fu->ip->opcode], fu->ip->CIC); }
+              if (verbose) { nldone = 0; if (verbose) printf(", %d:%4s/%03d", j, OPNAME[fu->ip->opcode], fu->ip->CIC); }
               fu->busy1 = 0;
               --(FA[t].busy2);
            }
@@ -1374,7 +1392,7 @@ int ReleaseROBEntry(Instruction **ipp)
       }
    }
    if (verbose) {
-      printf("    ReleaseROBEntry: flag=%d ri=%d piold=%d RBHead=%d-->%d\n", flag, ri, piold, a, RBHead);
+      printf("    ReleaseROBEntry: flag=%d ri=%d piold=%d RBHead=%d-->%d RBEmpty=%d\n", flag, ri, piold, a, RBHead, RBEmpty);
    }
    
    return (flag);
@@ -1583,19 +1601,18 @@ Instruction *InstructionMemoryRead()
 {
    Instruction *ip1, *ipn;
    int n; u32 mypc = PC;
+   n = Queue__Count(DYNSTREAM);
 
-   if (debug) printf(" mypc=%d  PI_n=%d\n",mypc, PI_n);
-   if (mypc < PI_n) {
-      ip1 = (Instruction *)Queue__Read(mypc, PI);
-   } else {
-      ip1 = &NULL_Instruction;
-      StreamEnd = 1;
-      n = Queue__Count(DYNSTREAM);
-      LastInst = (Instruction *) Queue__Read(n - 1, DYNSTREAM);
-   }
-   ipn = (Instruction *) Malloc(sizeof(Instruction));          
-   if (ipn == NULL) ExitProg("Cannot allocate memory for 1 instruction.");
-   memcpy((void *)ipn, (void *)ip1, sizeof(Instruction));
+   if (debug) { dbgln(""); printf("  InstructionMemoryRead:  mypc=%d PI_n=%d n=%d, StreamEnd=%d\n",mypc, PI_n, n, StreamEnd); }
+
+    if (!StreamEnd) {
+        ip1 = (Instruction *)Queue__Read(mypc, PI);
+        ipn = (Instruction *) Malloc(sizeof(Instruction));
+        if (ipn == NULL) ExitProg("Cannot allocate memory for 1 instruction.");
+        memcpy((void *)ipn, (void *)ip1, sizeof(Instruction));
+    } else {
+        ipn = NULL;
+    }
 
    return (ipn);
 }
@@ -1612,11 +1629,13 @@ void Branch_Prediction(u32 mypc, Instruction *ip)
    ip->NPC = mypc + ip->rs3;
    ip->bdir = 1;
 
+
 //PATCH
-   ++bne_count;
-   if (bne_count == G.iterations) {
-      ip->NPC = mypc + 1;
-      ip->bdir = 1;
+   ++BRANCH_COUNT;
+   if (BRANCH_COUNT == G.iterations) {
+      StreamEnd = 1;
+        int n = Queue__Count(DYNSTREAM);
+        LastInst = (Instruction *) Queue__Read(n - 1, DYNSTREAM);
    }
 }
 
@@ -1629,21 +1648,25 @@ void Branch_Prediction(u32 mypc, Instruction *ip)
 int FETCH_DO(Instruction *ip)
 {
    int flag = 1;
-   Instruction *ip1, *nip;
+//   Instruction *ip1, *nip;
+//   Instruction *nip;
+   if (debug) { dbgln(""); printf("  in FETCH: %4s/%03d \n", OPNAME[ip->opcode], ip->CIC); }
 
    Queue__Insert((char *)ip, DYNSTREAM);
    ip->CPC = PC;
    ip->CIC = IC;
    if (ip->opcode == BNE || ip->opcode == BEQ) {
-      nip = ip;
+//      nip = ip;
       Branch_Prediction(PC + 1, ip);
-      PC = nip->NPC;
+//      Branch_Prediction(PC, ip);
+//      PC = nip->NPC;
+      PC = ip->NPC;
    } else {
       ++PC;
    }
    ++IC;
-   if (ip->bdir) flag = 0;
-   if (verbose) printf("* FETCH: %4s/%03d flag=%d PC=%02d\n", OPNAME[ip->opcode], ip->CIC, flag, ip->CPC);
+//   if (ip->bdir) flag = 0;
+   if (verbose) printf("* FETCH: %4s/%03d flag=%d IC=%02d PC=%02d\n", OPNAME[ip->opcode], ip->CIC, flag, ip->CPC, PC);
 
    return (flag);
 }
@@ -1662,6 +1685,8 @@ int RENAME_DO(Instruction *ip)
    int p1alloc = 0, p2alloc = 0, p3alloc = 0;
    int flag0 = 0, flag1 = 0, flag2 = 0, flag3 = 0;
    u32 vi1, vi2, vi3;
+
+   if (debug) { dbgln("");  printf("  in RENAME: %4s/%03d \n", OPNAME[ip->opcode], ip->CIC); }
 
    /* Read current mappings, allocate physical registers */
    if (ip->rs1 >= 0 && ip->rs1 <= AA.lregs) {
@@ -1795,6 +1820,8 @@ int DISPATCH_DO(Instruction *ip)
 {
    int p, q, k, wk=-1, rk=-1, flag = 1, found;
 
+   if (debug) { dbgln(""); printf("  in DISPATCH: %4s/%03d \n", OPNAME[ip->opcode], ip->CIC); }
+
    if (! CheckROBEntry() || ! CheckIWEntry()) flag = 0;
 
    if (flag == 1) {
@@ -1854,7 +1881,7 @@ int ISSUE_DO(Instruction *ip)
    int flag = 1, fn = 0, t = ip->optype, k = ip->winn, is_store;
 
 //printf("\nspec=%d\n",AA.speculation);
-   if (debug) printf("  in ISSUE: %4s/%03d qj=%d qk=%d bdir=%d\n", OPNAME[ip->opcode], ip->CIC, IW[k].qj, IW[k].qk, ip->bdir);
+   if (debug) { dbgln("");  printf("  in ISSUE: %4s/%03d qj=%d qk=%d bdir=%d\n", OPNAME[ip->opcode], ip->CIC, IW[k].qj, IW[k].qk, ip->bdir); }
 //   if (debug) printf("  in ISSUE: ip 0x%lx IW.ip 0x%lx  ip.qj %d ip.qk %d ip.ql %d\n", ip, IW[k].ip, ip->qj, ip->qk, ip->ql);
    switch (ip->opcode) {
       case STORE:
@@ -1894,10 +1921,10 @@ int ISSUE_DO(Instruction *ip)
       printf("* ISSUE: %4s/%03d flag=%d optype=%d(%s) fup1=%4s --> %s\n", \
          OPNAME[ip->opcode], ip->CIC, flag, t, FUNAME[t], \
          ip->fup1 != NULL ? FUNAME[(ip->fup1)->ip->optype] : "NULL" \
-         , flag == 1 ? "OK" : flag == 0 ? "NOT_READY" : flag == -1 ? "NO_FU" : flag == -2 ? "DELAYED" : "???" \
+         , flag == 1 ? "OK" : flag == 0 ? "DATA_WAIT" : flag == -1 ? "NO_FU" : flag == -2 ? "DELAYED" : "???" \
       );
    }
-   if (flag < 0) flag = 0; //re-adjust flag
+//   if (flag < 0) flag = 0; //re-adjust flag
 
    return (flag);
 }
@@ -1913,16 +1940,30 @@ int EXECUTE_DO(Instruction *ip)
    u32 efad;
    int flag = 0, t = ip->optype;
 
-//   if (debug) printf("  in EXECUTE: %4s/%03d qj=%d qk=%d ql=%d  fup1=%s\n", OPNAME[ip->opcode], ip->CIC, ip->qj, ip->qk, ip->ql, FUNAME[(ip->fup1)->ip->optype]);
-   if (debug) printf("  in EXECUTE: %4s/%03d  fup1=%s\n", OPNAME[ip->opcode], ip->CIC, FUNAME[(ip->fup1)->ip->optype]);
+    // DEBUG INFO
+    if (debug) { 
+        char aux[20];
+        dbgln(""); 
+        if (ip->fup1 == NULL) strcpy(aux, "NULL");
+        else {
+            if ((ip->fup1)->ip == NULL) strcpy(aux, "NULL");
+            else strcpy(aux, FUNAME[(ip->fup1)->ip->optype]);
+        }
+        printf("  in EXECUTE: %4s/%03d  fup1=%s\n", OPNAME[ip->opcode], ip->CIC, aux);
+    }
 
-  /* do actual operation*/
+   /* do actual operation*/
    switch (ip->opcode) {
       case BNE: case BEQ:
          ip->fup = ip->fup1; flag = 1;
          break;
       case MUL:
          RM[ip->pd].vi = RM[ip->ps1].vi * RM[ip->ps2].vi;
+         ip->fup = ip->fup1; flag = 1;
+         break;
+      case DIV:
+         if (RM[ip->ps2].vi == 0) RM[ip->ps2].vi = 1; // temp PATCH
+         RM[ip->pd].vi = RM[ip->ps1].vi / RM[ip->ps2].vi;
          ip->fup = ip->fup1; flag = 1;
          break;
       case ADD:
@@ -1986,7 +2027,7 @@ int COMPLETE_DO(Instruction *ip)
 {
    int k, p, flag = 0, nldone = 0, reg, ok;
 
-   if (debug) printf("  in COMPLETE: %-3s/%03d: ", OPNAME[ip->opcode], ip->CPC);
+   if (debug) { dbgln(""); printf("  in COMPLETE: %-3s/%03d: ", OPNAME[ip->opcode], ip->CPC); }
 
 //   ReleaseFU(ip);
 
@@ -2027,8 +2068,6 @@ int COMPLETE_DO(Instruction *ip)
          }
       }
       if (debug) { nldone = 1; printf("\n"); }
-
-      CB[CBHead++] = ip;
    }
    if (ip->store) {
    }
@@ -2088,10 +2127,10 @@ if (!STOREWAITS) {
  *---------------------------------------------------------------------------*/
 int COMMIT_DO(Instruction *ip)
 {
-   Instruction *ip1;
-   int k, j = 0, start = 0, flag = 0; 
+   int k, j = 0, start = 0, flag = 0;
 
-//   if (ip == NULL) return (flag);
+   if (debug) { dbgln(""); printf("  in COMMIT: %4s/%03d \n", OPNAME[ip->opcode], ip->CIC); }
+
 /*
    if ((! ip->store) && ip->opcode != BNE) {
       // Update Physical Registers
@@ -2101,15 +2140,15 @@ int COMMIT_DO(Instruction *ip)
    }
 */
 
-   flag = ReleaseROBEntry(&ip1);
-   if (flag == 1) {
-      if (ip1 == LastInst) IsEnd = 1;
+//   flag = ReleaseROBEntry(&ip1);
+   flag = (ip != NULL);
+   if (flag == 1) { // An entry has been released and it's the Last instruction of the stream
+      if (ip == LastInst) IsEnd = 1; // In such case, the simulation must be ended
    }
    if (verbose) {
-      printf("* COMMIT: %4s/%03d flag=%d RBHead=%d RBTail=%d RBEmpty=%d RBFull=%d\n", flag ? OPNAME[ip1->opcode] : "----", flag ? ip1->CIC : 0, flag, RBHead, RBTail, RBEmpty, RBFull);
+      printf("* COMMIT: %4s/%03d flag=%d RBHead=%d RBTail=%d RBEmpty=%d RBFull=%d IsEnd=%d\n", flag ? OPNAME[ip->opcode] : "----", flag ? ip->CIC : 0, flag, RBHead, RBTail, RBEmpty, RBFull, IsEnd);
    }
 
-//   return (flag);
    return (flag);
 }
 
@@ -2121,15 +2160,18 @@ int COMMIT_DO(Instruction *ip)
  *---------------------------------------------------------------------------*/
 int FETCH_END(Instruction *ipdummy)
 {
-   int k;
+   int k, nst = STAGE_SIZ[FETCH];
    Instruction *ip;
    InstructionSlot *isp = STAGE_BUF[FETCH];
+   char auxopc[10], auxcpc[10], auxcic[10];
 
+   if (debug) Display("  in FETCH_END: no. of slots = %d", nst);
    if (verbose) {
-//      for (k = 0; k < 4; ++k) {
-      for (k = 0; k < AA.f_width; ++k) {
+      for (k = 0; k < nst; ++k) {
          ip = isp[k].ip;
-         printf("  FETCH_END:%4s k=%d delay=%d PC=%02d IC=%02d SF=%d\n", OPNAME[ip->opcode], k, isp[k].delay, ip->CPC, ip->CIC, STAGE_LAST[FETCH]);
+         if (ip != NULL) { sprintf(auxopc, "%s", OPNAME[ip->opcode]); sprintf(auxcpc, "%02d", ip->CPC);  sprintf(auxcic, "%02d", ip->CIC); }
+         else {  sprintf(auxopc, "----"); sprintf(auxcpc, "--"); sprintf(auxcic, "--"); }
+         printf("  FETCH_END:%4s k=%2d delay=%d PC=%s IC=%s SF=%d\n", auxopc, k, isp[k].delay, auxcpc, auxcic, STAGE_LAST[FETCH]);
       }
    }
    return(0);
@@ -2154,26 +2196,12 @@ int RENAME_END(Instruction *ipdummy)
  *---------------------------------------------------------------------------*/
 int DISPATCH_END(Instruction *ipdummy)
 {
-   int j, k;
-
-   InstructionSlot *isp1;
-   Instruction *ip1, *ip2;
-
-   /* Analyze if any of the instruction to be possibly dispacthed (currently 
-      in DISPATCH stage) have as source register my (completed) destination
-      register*/
-   for (j = 0; j < AA.w_width; ++j) {
-      if (CB[j] != &NULL_Instruction) {
-         ip2 = CB[j];
-         isp1 = STAGE_BUF[DISPATCH];
-      }
-   }
    return(0);
 }
 
 /*---------------------------------------------------------------------------*
  NAME      : ISSUE_END
- PURPOSE   : Final operatins for the Issue stage
+ PURPOSE   : Final operations for the Issue stage
  PARAMETERS:
  RETURN    :
  *---------------------------------------------------------------------------*/
@@ -2253,10 +2281,10 @@ int COMPLETE_END(Instruction *ipdummy)
    int dmemdone = 0;
 
    if (debug) { nldone = 0; printf("  COMPLETE_END:"); }
-   if (!LQEmpty) if (LQ[LQHead]->qi == 0) { printf("\n"); nldone = 1; PopLQ(); dmemdone = 1; }
+   if (!LQEmpty) if (LQ[LQHead]->qi == 0) { if (debug) printf("\n"); nldone = 1; PopLQ(); dmemdone = 1; }
 //   if (!SQEmpty) if (SQ[SQHead]->opcode == STORE) if (SQ[SQHead]->qi == 0) { printf("\n"); nldone = 1; PopSQ(); dmemdone = 1; }
 //   if (!SQEmpty) if (SQ[SQHead]->opcode == STORE2) if (SQ[SQHead]->qi == 0) { printf("\n"); nldone = 1; PopSQ(); dmemdone = 1; }
-   if (!SQEmpty) if (SQ[SQHead]->qi == 0) { printf("\n"); nldone = 1; PopSQ(); dmemdone = 1; }
+   if (!SQEmpty) if (SQ[SQHead]->qi == 0) { if (debug) printf("\n"); nldone = 1; PopSQ(); dmemdone = 1; }
    if (debug) if (!nldone) printf("\n");
 
    return (flag);
@@ -2270,150 +2298,225 @@ int COMPLETE_END(Instruction *ipdummy)
  *---------------------------------------------------------------------------*/
 int COMMIT_END(Instruction *ipdummy)
 {
-   int k;
-
-   /* Clean up Complete Buffer just before Complete Stage */
-   for (k = 0; k < AA.w_width; ++k) { CB[k] = &NULL_Instruction; }
-   CBHead = 0;
-
    //TODO; for the committed instructions, write the results of the Pregs into the Lregs
    return(0);
 }
 
-/*---------------------------------------------------------------------------*
+/*---------------------------------------------------------------------------
  NAME      : Stage
- PURPOSE   : Move instructions from current to next stage IFF resources are
-             avaiable in the next stage
- PARAMETERS: int st - current stage id
- GLOBALS   : int STAGE_LAST - 
- RETURN    : int ec - error code: 0==OK
- *---------------------------------------------------------------------------*/
+ PURPOSE   : Move instructions from stage (st-1) to stage (st) IFF
+             the destination stage has resources/slots available.
+ PARAMETERS: int st    - current stage id (destination stage)
+ GLOBALS   : many (see comments) — preserved from the original code
+ RETURN    : int ec    - error code: 0==OK
+ NOTES     :
+       * Calling STAGE_DO[st](ip0) when ip0==NULL iff ST_IGNORE_STBUF[st]==1
+       * The fup/fup1 latency rules used to compute curr[p].delay
+       * In-order "head" advancement via STAGE_LAST[st]
+ ---------------------------------------------------------------------------*/
 int Stage(int st)
 {
-    int ec = 0; // error code
+    int ec = 0, size_src = STAGE_SIZ[st - 1], size_dst  = STAGE_SIZ[st];
+    InstructionSlot *src = STAGE_BUF[st - 1], *dst      = STAGE_BUF[st]; char aux[80];
 
-   int l0, l1, j, k, p, q, found, r, start = 0, start0 = 0, doorder = 0, stageend = 0, dowait;
-   Instruction *ip0, *ip1, *ip2, *ipselected;
-   int n = STAGE_SIZ[st - 1], m = STAGE_SIZ[st], needln, cicselected;
-   InstructionSlot *prev = STAGE_BUF[st - 1], *curr = STAGE_BUF[st];
-   char aux[SCREENWIDTH+20];
+    // In-order start indices (round-robin heads) for source and destination
+    int src_start = 0, dst_start = 0;
 
-    // 
-    if (STAGE_INORDER[st])     { start  = (STAGE_LAST[st]     != -1) ? STAGE_LAST[st]     : 0; }
-    if (STAGE_INORDER[st - 1]) { start0 = (STAGE_LAST[st - 1] != -1) ? STAGE_LAST[st - 1] : 0; }   
-//   start0 = (STAGE_LAST[st - 1] != -1) ? STAGE_LAST[st - 1] : 0;
-   if (verbose) {
-      printf("------ Start %s(%s): %s[%d..](max=%d)-->%s[%d..](max=%d)\n", STAGE_NAME[st], STAGE_ACR[st], STAGE_ACR[st-1], start0, n, STAGE_ACR[st], start, m);
-   }
+    if (STAGE_INORDER[st - 1]) src_start = (STAGE_LAST[st - 1] != -1) ? STAGE_LAST[st - 1] : 0;
+    if (STAGE_INORDER[st])     dst_start = (STAGE_LAST[st]     != -1) ? STAGE_LAST[st]     : 0;
 
-   needln = 0;
-   for (j = 0; j < n; ++j) {
-      q = (j + start0) % n;
-//      l0 = (prev[q].ip != NULL) ? (((prev[q].ip)->fup != NULL) ? (prev[q].ip)->fup->inilatency : 2) : 2; 
-      l0=1;
-ipselected = NULL; cicselected = -1;
-if (debug) { needln = 1; printf("%s%s[%d].d=%d", j!=0 ? "  ":"  ", STAGE_ACR[st-1], q, prev[q].delay); }
-ip1=prev[q].ip;
-if (ip1 != 0) { ipselected = ip1; cicselected = ip1->CIC; }
-if (debug) { needln = 1; if (ip1 != 0) printf(" %s/%03d", OPNAME[ipselected->opcode], cicselected); else printf(" ---"); }
-      if (prev[q].delay == l0 || st == FETCH || st == MAX_STAGE) {
-         found = 0; ip0 = NULL;
-         for (k = 0; k < m; ++k) {
-            p = (k + start) % m;
-//ipselected = NULL; cicselected = -1;
-if (debug) { needln = 1; printf(" [start=%d p=%d] %s%s[%d].d=%d", start, p, k!=0 ? ", ":" --> ", STAGE_ACR[st], p, curr[p].delay); }
-ip2=curr[p].ip;
-//if (ip2 != 0) { ipselected = ip2; cicselected = ip2->CIC; }
-if (debug) { needln = 1; if (ip2 != 0) printf(" %s/%03d", OPNAME[ip2->opcode], ip2->CIC); else printf(" ---"); }
-//            l1 = (curr[p].ip != NULL) ? (((curr[p].ip)->fup != NULL) ? (curr[p].ip)->fup->inilatency - 1: 1) : 1; 
-            l1 = 0;
-            if (curr[p].delay == l1 || st >= MAX_STAGE - 1) {
-               ip0 = (st > FETCH) ? prev[q].ip : InstructionMemoryRead();
-               if (StreamEnd && st == FETCH) { stageend = 1; break; }
-               if (STAGE_INORDER[st]) STAGE_LAST[st] = (p + 1) % m; //update head
-//               STAGE_LAST[st] = (p + 1) % m; //update head
-if (debug) { needln = 0; printf(" --> sl=%d found_free_slot(p)=%d\n", STAGE_LAST[st], p); fflush(stdin); }
-               //----------------------------------------------------------------------------
-//               r=0; if (ip0 != NULL) r = (STAGE_DO[st])(ip0);
-               r=0; if (ip0 != NULL || ST_IGNORE_STBUF[st] == 1) { needln = 0; r = (STAGE_DO[st])(ip0); }
-//               r = (STAGE_DO[st])(ip0);
-               //----------------------------------------------------------------------------
-               if (st == FETCH) {
-                  --(prev[q].delay);
-                  curr[p].ip = ip0;
-                  curr[p].delay = 1; 
-                  ip0->t[st] = CK;
-                  ip0->fup = NULL;
-                  found = 1;
-               }
-//               if (r == 0 && st < MAX_STAGE) {
-               if (r == 0 && !ST_IGNORE_FLAG[st]) {
-                  if (STAGE_INORDER[st]) { doorder = 1; }
-                  break;
-               }
-               dowait = 0;
-               if (st < MAX_STAGE) {
-                  curr[p].ip = ip0;
-//                  curr[p].delay = curr[p].inidelay;
-//                  curr[p].delay = (ip0->fup1 != NULL && ip0->fup == NULL && ip0->store) ? 100 : 1; 
-//                  curr[p].delay = (ip0->fup != NULL) ? ip0->fup->inilatency : 1 + (ip0->fup1 != NULL && (ip0->optype == L_FU));
-//                  curr[p].delay = (ip0->fup != NULL) ? ip0->fup->inilatency : 1 + (ip0->fup1 != NULL && (ip0->optype == L_FU || ip0->optype == S_FU));
-if (ip0->fup != NULL) {
-//Display("ciao1\n");
-    curr[p].delay = ip0->fup->inilatency;
-} else {
-//Display("ciao2\n");
-    if (ip0->fup1 != NULL && (ip0->optype == L_FU || ip0->optype == S_FU)) {
-//Display("ciao3 lat=%d type=%d\n", ip0->fup1->inilatency, ip0->optype);
-//        curr[p].delay = ip0->fup1->inilatency;
-//        curr[p].delay = 2;
-        curr[p].delay = 1;
-    } else {
-//Display("ciao4\n");
-        curr[p].delay = 1;
+    const int SOURCE_READY_DELAY = 1;  // original l0
+    const int DEST_FREE_DELAY    = 0;  // original l1
+
+    int stage_end  = 0;   // set when stream ends (e.g., at FETCH) or after COMMIT hook
+    int stop_after = 0;   // used to stop scanning further src slots when in-order requires it
+
+    if (verbose) {
+        printf("------ Start %s(%s): %s[%d..](max=%d) --> %s[%d..](max=%d)\n",
+               STAGE_NAME[st], STAGE_ACR[st],
+               STAGE_ACR[st - 1], src_start, size_src,
+               STAGE_ACR[st],     dst_start, size_dst);
     }
-}
 
-// the above seems to be the cause of the apparent problem of only one less slott for ISSUE !!
-//                  curr[p].delay = (ip0->fup != NULL) ? ip0->fup->inilatency : 1;
-//                  if (ip0->ql && ip0->store && st >= EXECUTE) { dowait = 1; }
-//                  else ip0->t[st] = CK;
-                  ip0->t[st] = CK;
-                  ip0->fup = NULL;
-               }
-               if (!dowait) --(prev[q].delay);
-               found = 1;
-               break;
-            } else {
-//if (debug) { needln = 0; printf("  NO FREE SLOT or LAST STAGE\n"); }
+    // Scan all source slots (round-robin starting at src_start)
+    for (int j = 0; j < size_src; ++j) {
+        int si = (j + src_start) % size_src;   // source index
+        Instruction *ip_src = src[si].ip;
+
+        if (debug) { printf ("  SRC::"); NEEDLN = 1; }
+
+        if (debug) {
+            if (ip_src) printf(" %s[%d].d=%d:%s/%03d",STAGE_ACR[st - 1], si, src[si].delay, OPNAME[ip_src->opcode], ip_src->CIC);
+//            else printf(" %s[%d].ip=NULL", STAGE_ACR[st - 1], si);
+        }
+//        if (st != FETCH && ip_src == NULL) continue;
+        if (st == FETCH && StreamEnd) continue;
+
+        // If the source isn't ready yet, just age it and go check another slot
+        if (st != FETCH && src[si].delay > SOURCE_READY_DELAY) {
+             --(src[si].delay); continue;
+//            --(src[si].delay);
+        }
+
+//printf("mydelay=%d\n",src[si].delay);
+        // Source is considered "ready" if:
+        int source_ready = (st == FETCH)                         //- we're at FETCH (special producer)
+                        || (src[si].delay == SOURCE_READY_DELAY) //- OR its delay == 1
+                        || (st == COMMIT);                       //- OR we're at commit (look up ROB)
+        if (!source_ready) { continue; } // Not ready: go check next slot
+
+        // Pretty debug (optional)
+        if (debug) {
+            if (ip_src) printf(" %s[%d].d=%d",STAGE_ACR[st - 1], si, src[si].delay);
+            if (ip_src) { printf(":%s/%03d", OPNAME[ip_src->opcode], ip_src->CIC); }
+            if (!StreamEnd && st == FETCH) printf (" FETCHING");
+        }
+
+
+        // Try to find a free destination slot (round-robin from dst_start)
+        if (debug) { printf ("\n  DST::"); NEEDLN = 1; }
+        int found_transfer = 0;
+        int action_rc = 0;
+        for (int k = 0; k < size_dst; ++k) {
+            int di = (k + dst_start) % size_dst;   // destination index
+            Instruction *ip_dst = dst[di].ip;
+
+            // Destination free if delay==0, or we’re at the terminal stage (legacy: >= MAX_STAGE-1)
+            int dest_free = (dst[di].delay == DEST_FREE_DELAY) || (st >= MAX_STAGE - 1);
+            if (!dest_free) continue; //no avail slot: go check next slot
+            // ASSERT: here I assume a dst slot is found
+
+            // In-order stages update head *when they actually use di*
+            if (STAGE_INORDER[st]) STAGE_LAST[st] = (di + 1) % size_dst; // update "head"
+
+            if (debug) { if (ip_dst) printf(" FREE %s[%d]", STAGE_ACR[st], di); }
+
+//printf("Hola1\n");fflush(stdout);
+            // Define the pointer to the source instruction
+            //  - FETCH creates/reads a new instruction
+            //  - other stages pull from src
+            Instruction *ip0 = NULL, *ip1;
+            if (!StreamEnd || st != FETCH) ip0 = ip_src;
+            if (!StreamEnd && st == FETCH) ip0 = InstructionMemoryRead();
+            // COMMIT special case
+            if (st == COMMIT) if (ReleaseROBEntry(&ip1)) ip0 = ip1; else { stage_end = 1; break; }
+//printf("Hola2 ip0=%08X\n", ip0);fflush(stdout);
+
+            // Per-stage action (hazard/structural checks, etc.)
+            // Call even with ip0==NULL iff ST_IGNORE_STBUF[st] == 1
+//printf("Hola3 ST_IGNORE_STBUF[st]=%d\n", ST_IGNORE_STBUF[st]);fflush(stdout);
+            //----------------------------------------------------------------------------
+            if (ip0 != NULL || ST_IGNORE_STBUF[st] == 1) action_rc = (STAGE_DO[st])(ip0);
+            //----------------------------------------------------------------------------
+
+//printf("StreamEnd=%d\n", StreamEnd); fflush(stdout);
+
+            // Special immediate handling for FETCH
+            if (st == FETCH) {
+                --(src[si].delay);
+                dst[di].ip     = ip0;
+                dst[di].delay  = 1;
+                ip0->t[st]     = CK;   // stage timestamp
+                ip0->fup       = NULL; // consumed
+                found_transfer = 1;
+       //         break; // destination loop
+                if (StreamEnd) stage_end = 1;   // honor end-of-stream after we placed the last inst
             }
-         }
-//         sprintf(aux, "NO SLOTS when moving instuction %s/%03d from stage %s to stage %s.", OPNAME[ip0->opcode], ip0->CIC, STAGE_ACR[st], STAGE_ACR[st+1]);
-//*aux='\0';
-         if (!stageend && !found && ipselected != NULL) {
-            char aux2[10];
-            if (ipselected != NULL) strcpy(aux2,OPNAME[ipselected->opcode]); else strcpy(aux2, "----");
-            sprintf(aux, "NO SLOTS when trying to move instuction %s/%03d from stage %s to stage %s.", aux2, cicselected, STAGE_ACR[st-1], STAGE_ACR[st]);
-            LogStall(&(Stall[st]), aux); 
-            if (debug) { needln = 1;  printf(" --> NO SLOT"); }
-         }
-if (debug) if (needln) { needln = 0; printf("\n"); }
-         if (doorder || stageend) { if (debug) printf("\n"); break; }
-      }
-      if (prev[q].delay > 1) {
-         --(prev[q].delay);
-      }
-      if (found && st == DISPATCH) ec = CompactBuffer(st);
-//      if (found && (st == DISPATCH || st == EXECUTE)) ec = CompactBuffer(st);
-      if (ec) ExitProg("CompactBuffer has failed in function Stage.");
-   }
-if (debug) if (needln) { needln = 0; printf("\n"); }
-   if (debug) printf("\n");
-   //----------------------------------------------------------------------------
-   if (!stageend) (STAGE_END[st])(NULL);
-   //----------------------------------------------------------------------------
 
-    return (ec);
+//printf("action_rc=%d\n", action_rc); fflush(stdout);
+
+            // If the action says "not ready yet" (legacy: rc==0 and !ignore_flag), stop here
+            int branch_taken = 0;
+            if (st == FETCH && ip0->bdir == 1) branch_taken = 1; // in case of branch taken: block fetch
+
+            //
+            if (action_rc < 1 && !ST_BLOCK_IGNORE[st]) {
+//printf("URKA\n");
+                // For in-order stage we must not skip later older items
+                if (STAGE_INORDER[st]) stop_after = 1;
+                if (st != FETCH) break;  // break the destination search loop
+            }
+
+            // NORMAL TRANSFER path (st != COMMIT)
+            if (st != COMMIT) {
+                // Reserve destination slot
+                dst[di].ip = ip0;
+
+                // Compute next-stage delay based on fup/fup1 policy
+                if (ip0->fup != NULL) {
+                    dst[di].delay = ip0->fup->inilatency;
+                } else if (ip0->fup1 != NULL &&
+                           (ip0->optype == L_FU || ip0->optype == S_FU)) {
+                    dst[di].delay = 1; // legacy choice (you had 1 here) // TEST: USE 2 here
+                } else {
+                    dst[di].delay = 1;
+                }
+
+                // Bookkeeping
+                ip0->t[st] = CK;      // stage timestamp
+                ip0->fup   = NULL;    // consumed
+
+                // Legacy INIB handling at ISSUE for load/store with fup1
+                INIB = 0;
+                if (ip0->fup1 != NULL && st == ISSUE && STAGE_DELAY[st] == 1 &&
+                    (ip0->optype == L_FU || ip0->optype == S_FU)) {
+                    INIB = 1;
+                }
+            }
+
+//            if (ip0 == NULL) { continue; } // continue scanning destination slots
+
+            // Source “ages” once the move is performed
+            if (src[si].delay > 0) --(src[si].delay);
+
+            found_transfer = 1; if (debug) dbgln("");
+            if (debug) printf("  =====> TRANSFER %s/%03d  %s[%d] -> %s[%d]\n",
+                              ip0 ? OPNAME[ip0->opcode] : "----",
+                              ip0 ? ip0->CIC           : -1,
+                              STAGE_ACR[st - 1], si, STAGE_ACR[st], di);
+
+            //
+            if (branch_taken && STAGE_INORDER[st]) stop_after = 1;
+
+            if (src[si].delay == 0) src[si].ip = NULL;
+            break; // destination loop
+        } // end for each destination slot
+        if (debug) dbgln(""); // dbgln("ciao");
+
+        // If we couldn’t move but had a ready instruction, log the stall
+        if (!stage_end && !found_transfer && ip_src != NULL) {
+            char opname[16];
+            if (ip_src) strncpy(opname, OPNAME[ip_src->opcode], sizeof(opname) - 1), opname[15] = '\0';
+            else        strncpy(opname, "----", sizeof(opname) - 1), opname[15] = '\0';
+
+            char msg[SCREENWIDTH + 20];
+            char cause[20]; strcpy(cause, action_rc == 0 ? "DATA_WAIT" : action_rc == -1 ? "NO_FU" : action_rc == -2 ? "DELAYED" : "NO_SLOTS");
+
+            snprintf(msg, sizeof(msg),
+                     "%9s in %s when moving %s/%03d from %s to %s.",
+                     cause, STAGE_ACR[st], opname, ip_src->CIC, STAGE_ACR[st - 1], STAGE_ACR[st]);
+            LogStall(&(Stall[st]), msg);
+
+            if (debug) printf("      -> STALL (no free slot in %s)\n", STAGE_ACR[st]);
+        }
+
+        // If in-order and we just hit a blocking situation, stop scanning more sources
+        if (stop_after || stage_end) {
+            break;
+        }
+
+        // Compact after a successful DISPATCH transfer (legacy place)
+        if (found_transfer && st == DISPATCH) {
+            ec = CompactBuffer(st);
+            if (ec) ExitProg("CompactBuffer failed in Stage(%s).", STAGE_NAME[st]);
+        }
+    } // end for each source slot
+    if (debug) dbgln("");
+
+    // Per-stage end callback (unchanged)
+    if (!stage_end) { (STAGE_END[st])(NULL); }
+
+    return ec;
 }
 
 /*---------------------------------------------------------------------------*
@@ -2799,6 +2902,7 @@ void dump_pipeline(int stage, int ic_ini, int ic_end)
    char buf7[32];
    char buf8[32];
 
+   if (debug) Display("dump_pipeline: start\n");
    if (stage == 0) { st_ini = 1; st_end = MAX_STAGE; }
    else { st_ini = stage; st_end = stage; }
 
@@ -2891,8 +2995,8 @@ void dump_pipeline(int stage, int ic_ini, int ic_end)
    for (fa = 1; fa <= MAXFT; ++fa) {
       len += snprintf(out1 + len, sizeof(out1) - len, "%3s", FUNAME[fa]);
    }
-   Display("%s RENAMED-STR    INSTRUCTION-WINDOW                   REORDER-BUFFER         %s", out, out1);
-   if (CO != NULL) fprintf(CO, "%s RENAMED-STR    INSTRUCTION-WINDOW                REORDER-BUFFER         %s\n", out, out1);
+   Display("%s RENAMED-STR    INSTRUCTION-WINDOW                   REORDER-BUFFER       %s", out, out1);
+   if (CO != NULL) fprintf(CO, "%s RENAMED-STR    INSTRUCTION-WINDOW                REORDER-BUFFER       %s\n", out, out1);
 
    // TOTAL SLOTS
    strcpy(out, "TOTAL SLOTS:          ");
@@ -2907,8 +3011,8 @@ void dump_pipeline(int stage, int ic_ini, int ic_end)
    for (fa = 1; fa <= MAXFT; ++fa) {
       len += snprintf(out1 + len, sizeof(out1) - len, "%3d", FA[fa].tot);
    }
-   Display("%s %-14d %-36d %-16d       %20s", out, AA.pregs, AA.win_size, AA.rob_size, out1);
-   if (CO != NULL) fprintf(CO, "%s %-13d %-36d %-16d       %20s\n", out, AA.pregs, AA.win_size, AA.rob_size, out1);
+   Display("%s %-14d %-36d %-16d     %20s", out, AA.pregs, AA.win_size, AA.rob_size, out1);
+   if (CO != NULL) fprintf(CO, "%s %-13d %-36d %-16d     %20s\n", out, AA.pregs, AA.win_size, AA.rob_size, out1);
 
    // BUSY SLOTS
    strcpy(out, "BUSY SLOTS:           ");
@@ -2926,8 +3030,8 @@ void dump_pipeline(int stage, int ic_ini, int ic_end)
    for (fa = 1; fa <= MAXFT; ++fa) {
       len += snprintf(out1 + len, sizeof(out1) - len, "%3d", FA[fa].busy2);
    }
-   Display("%s %-14d %-36d %-16d       %20s", out, PRAllocated, IWAllocated, RBAllocated, out1);
-   if (CO != NULL) fprintf(CO, "%s %-13d %-36d %-16d       %20s\n", out, PRAllocated, IWAllocated, RBAllocated, out1);
+   Display("%s %-14d %-36d %-16d     %20s", out, PRAllocated, IWAllocated, RBAllocated, out1);
+   if (CO != NULL) fprintf(CO, "%s %-13d %-36d %-16d     %20s\n", out, PRAllocated, IWAllocated, RBAllocated, out1);
 
    // STALLS
    strcpy(out, "STALLS:               ");
@@ -2941,8 +3045,8 @@ void dump_pipeline(int stage, int ic_ini, int ic_end)
    for (fa = 1; fa <= MAXFT; ++fa) {
       len += snprintf(out1 + len, sizeof(out1) - len, "%3d", FA[fa].stalls);
    }
-   Display("%s %-14d %-36d %-16d       %20s", out, PRStalls, IWStalls, RBStalls, out1);
-   if (CO != NULL) fprintf(CO, "%s %-13d %-36d %-16d       %20s\n", out, PRStalls, IWStalls, RBStalls, out1);
+   Display("%s %-14d %-36d %-16d     %20s", out, PRStalls, IWStalls, RBStalls, out1);
+   if (CO != NULL) fprintf(CO, "%s %-13d %-36d %-16d     %20s\n", out, PRStalls, IWStalls, RBStalls, out1);
 
    n1 = LQElems;
    m1 = SQElems;

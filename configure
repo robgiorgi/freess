@@ -1,0 +1,51 @@
+#!/bin/sh
+
+tgt=$1
+
+recompile="1"
+if [ "$2" = "-n" ]; then
+   recompile="0"
+fi
+ostype=`uname -s|tr '-' '_'`
+os=`echo $ostype|tr '[A-Z]' '[a-z]'`
+gcc --version 2> /dev/null
+if [ "$?" = "0" ]; then compil="gcc"; else compil="cc"; fi
+if [ "$compil" = "gcc" ]; then optimi="-O3"; else optimi="-O2"; fi
+if [ "$os" = "sunos" -o "$os" = "freebsd" ]; then 
+   ranlib="ranlib \$(LIBTGT)"; define="-I/usr/include"; 
+else 
+   ranlib=""; define=""; 
+fi
+if [ "$os" = "ultrix" ]; then 
+   ranlib='ar ts $(LIBTGT)'
+fi
+
+echo "ostype='$ostype'"
+echo "compil='$compil'"
+echo "optimi='$optimi'"
+echo "define='$define'"
+echo "ranlib='$ranlib'"
+
+for t in $tgt lib; do
+   if [ -d ../$t ]; then
+      (cd ../$t
+      echo "Configuring '$t'..."
+sed -e "{
+s:___COMPIL___:$compil:
+s:___OPTIMI___:$optimi:
+s:___OSTYPE___:$ostype:
+s:___DEFINE___:$define:
+s:___RANLIB___:$ranlib:
+}" makefile.in > ./mmm.tmp
+
+      'rm' -f makefile
+      mv ./mmm.tmp makefile
+      )
+   fi
+done
+
+if [ "$recompile" = "1" ]; then
+   make clean
+   'rm' -f $tgt 2> /dev/null
+   make release
+fi

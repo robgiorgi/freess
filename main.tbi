@@ -1,0 +1,133 @@
+# Tool Builder Interface V1.0
+
+##################################################################   
+Ini Section Name		= General; G
+#	Name			Var Name	Type	L	H		Default			Description		Prio	Opt
+Entry = Program Name;		progname;	STRING;	1;	MAXFILENAMELEN;	program;		Name of program;	 4;	exe
+Entry = Silent;			silent;		YES_NO; 0;      0;              no;                     Silent Mode;             4;     s
+Entry = Interactive;		interactive;	YES_NO; 0;      0;              yes;                    Interactive Mode;        4;     int
+Entry = Mode;			batch;		YES_NO; 0;      0;              no;                     Batch File Mode;         4;     batch
+Entry = Iterations;             iterations;     NUMVAL; 1;      0;              3;                      Number of Iterations;    4;     iter
+Entry = Starting Clock Cycle;	start_ck;	NUMVAL;	-100;	100;		0;			Starting Clock Cycle;	 4;	stck
+
+Ini Section Name		= Architecture; AA
+#	Name			Var Name	Type	L	H		Default			Description		Prio	Opt
+Entry = Logical Registers;	lregs;		NUMVAL;	1;	MAXPHYSREGS;	8;			Number of Logical Regs;  4;	lregs
+Entry = Physical Registers;	pregs;		NUMVAL;	1;	MAXPHYSREGS;	24;			Number of Physical Regs; 4;	pregs
+Entry = Pipeline Structure;	pipestruct;	STRING;	1;	MAXFILENAMELEN;	FDPIXWC;		Pipeline Structure; 	 4;	pstruct
+Entry = Unified LSU;		uni_lsu;	YES_NO;	0;	0;		yes;			Unified LSU;		 4;	unilsu
+Entry = In-Order Issue;		io_issue;	YES_NO;	0;	0;		no;			In-Order Issue;		 4;	ioi
+Entry = In-Order Complete;	io_complete;	YES_NO;	0;	0;		no;			In-Order Complete;	 4;	ioc
+Entry = Unified Dispatch/Issue;	uni_di;		YES_NO;	0;	0;		yes;			Unified Dispatch/Issue;	 4;	unidi
+#
+Entry = Fetch Width;		f_width;	NUMVAL;	1;	MAXISSUEWIDTH;	4;			Fetch Width;		 4;	fw
+Entry = Decode Width;		d_width;	NUMVAL;	1;	MAXISSUEWIDTH;	4;			Decode Width;		 4;	dw
+Entry = Dispatch Width;		p_width;	NUMVAL;	1;	MAXISSUEWIDTH;	4;			Dispatch Width;		 4;	pw
+Entry = Issue Width;		i_width;	NUMVAL;	1;	MAXISSUEWIDTH;	4;			Issue Width;		 4;	iw
+Entry = Write-Back Width;	w_width;	NUMVAL;	1;	MAXISSUEWIDTH;	4;			Write-Back Width;	 4;	ww
+Entry = Commit Width;		c_width;	NUMVAL;	1;	MAXROBSIZE;	4;			Commit Width;		 4;	cw
+Entry = Window Size;		win_size;	NUMVAL;	1;	MAXWINDOWSIZE;	16;			Instruction Window Size; 4;	wins	
+Entry = ROB Size;		rob_size;	NUMVAL;	1;	MAXROBSIZE;	16;			Reorder Buffer Size;	 4;	robs	
+#
+Entry = Integer ALU Units;	int_fu;		NUMVAL;	1;	MAXINTFU;	4;			Number of Int. FU;	 4;	afu	
+Entry = Integer ALU Latency;	a_lat;		NUMVAL;	0;	MAXLATENCY;	0;			Latency of INT ALU FU;	 4;	alat
+Entry = Integer ALU RSs;	a_rsn;		NUMVAL;	0;	MAXRSPERFU;	3;			Reservation St. per FU;  4;	arsn
+#
+Entry = Integer Mult. Units;	im_fu;		NUMVAL;	1;	MAXINTFU;	1;			Number of Mult. FU;	 4;	mfu	
+Entry = Integer Mult. Latency;	im_lat;		NUMVAL;	1;	MAXLATENCY;	4;			Latency of Mult. FU;	 4;	mlat
+Entry = Integer Mult. Pipe;	im_pipe;	YES_NO;	0;	0;		yes;			Pipelinization of Mult.; 4;	mpipe
+Entry = Integer Mult. RSs;	im_rsn;		NUMVAL;	0;	MAXRSPERFU;	3;			Reservation St. per FU;  4;	mrsn
+#
+Entry = Integer Div.  Units;	id_fu;		NUMVAL;	1;	MAXINTFU;	1;			Number of Div. FU;	 4;	dfu	
+Entry = Integer Div.  Latency;	id_lat;		NUMVAL;	1;	MAXLATENCY;	4;			Latency of Div. FU;	 4;	dlat
+Entry = Integer Div.  Pipe;	id_pipe;	YES_NO;	0;	0;		yes;			Pipelinization of Div.;  4;	dpipe
+Entry = Integer Div.  RSs;	id_rsn;		NUMVAL;	0;	MAXRSPERFU;	3;			Reservation St. per FU;  4;	drsn
+#
+Entry = Floating Point Units;	fp_fu;		NUMVAL;	1;	MAXFPFU;	4;			Number of FP FU;	 4;	ffu	
+#
+Entry = Floating Point Mult;	fm_fu;		NUMVAL;	1;	MAXFPFU;	1;			Number of FP Mult. FU;	 4;	xfu	
+#
+Entry = Load Units;		l_fu;		NUMVAL;	1;	MAXLFU;		1;			Number of Load FU;	 4;	lfu	
+Entry = Load Latency;		l_lat;		NUMVAL;	1;	MAXLATENCY;	2;			Latency of Load FU;	 4;	llat
+Entry = Load Pipe;		l_pipe;		YES_NO;	0;	0;		yes;			Pipelinization of Load;  4;	lpipe
+#
+Entry = Store Units;		s_fu;		NUMVAL;	1;	MAXSFU;		1;			Number of Store FU;	 4;	sfu	
+Entry = Store Latency;		s_lat;		NUMVAL;	1;	MAXLATENCY;	1;			Latency of Store FU;	 4;	slat
+Entry = Store Pipe;		s_pipe;		YES_NO;	0;	0;		yes;			Pipelinization of Store; 4;	spipe
+#
+Entry = Branch Units;		b_fu;		NUMVAL;	1;	MAXBFU;		1;			Number of Branch FU;	 4;	bfu	
+Entry = Branch Latency;		b_lat;		NUMVAL;	0;	MAXLATENCY;	0;			Latency of Branch FU;	 4;	blat
+Entry = Branch RSs;		b_rsn;		NUMVAL;	0;	MAXRSPERFU;	3;			Reservation St. per FU;  4;	brsn
+#
+Entry = Load Queue Size;	lqsize;		NUMVAL;	1;	MAXLQSIZE;	1;			Load Queue Size;	 4;	lqs	
+Entry = Store Queue Size;	sqsize;		NUMVAL;	1;	MAXSQSIZE;	1;			Store Queue Size;	 4;	sqs	
+Entry = UniLSU RSs;		ls_rsn;		NUMVAL;	0;	MAXRSPERFU;	3;			Reservation St. per FU;  4;	lsrsn
+#
+Entry = Speculation;		speculation;	YES_NO;	0;	0;		yes;			Enable Speculation;	 4;	spec
+Entry = Write Back Latency;	wblat;		NUMVAL;	1;	0;		0;			Write Back Latency;	 4;	wblat	
+
+Ini Section Name		= Program Defaults; Pro
+Entry = Log File Name;		logfile;	STRING;	1;	MAXFILENAMELEN;	def.log;		Log File;		4;      logfile
+
+##################################################################   
+
+Tool Acronym		= freess
+Tool Version		= 1.1
+Tool Creation Date	= 14-Oct-2025
+Tool Name		= Free Superscalar Simulator
+Tool Purpose		= Educational Tool
+
+Module1 Name		= Superscalar
+Module1 Main Method	= Start
+Module1 Constructor	= Constr
+Module1 Destructor	= Destru
+Module1 Purpose		= Manage Superscalar Pipeline
+
+#Other Module Name	= Degenerate
+
+#Define			= MAXCPU;	64
+Define			= MAXISSUEWIDTH;	64
+Define			= MAXWINDOWSIZE;	1024
+Define			= MAXROBSIZE;		2048
+Define			= MAXPHYSREGS;		1024
+Define			= MAXINTFU;		24
+Define			= MAXFPFU;		24
+Define			= MAXLFU;		24
+Define			= MAXSFU;		24
+Define			= MAXBFU;		24
+Define			= MAXLQSIZE;		256
+Define			= MAXSQSIZE;		256
+Define			= MAXLATENCY;		10000
+Define			= MAXITERATIONS;	10000
+Define			= MAXRSPERFU; 	        100
+
+#Library			= m
+MakeDef			= SHARING_STAT
+MakeDef			= DGEN
+MakeDef			= DXP
+#MakeDef			= OLDGEN
+#MakeDef			= DEBUG1
+#MakeDef			= DEBUG2
+#MakeDef                        = DEBUG3
+#MakeDef			= ALEX
+
+#Command Line Variable   = Time Slice; timeslice;	NUMVAL;	1;	LINF;	200000;	ts in ms;	4;	ts
+#
+Rule for Name =\
+   rfn=`echo "$progname"`
+#  nnn=`echo $sproto |tr '[A-Z]' '[a-z]'| awk '{print substr($0, 0, 4)}' \\
+#    |awk '{printf("%%s____", $0)}' |awk '{print substr($0, 0, 4)}'`;\\
+#  rfn=`echo "$nnn $tracename $ncpu" | awk '{printf("%%s_%%s_%%03d", $1, $2, $3);}'`
+#
+Parameter Transformations =\
+  logfile=$rfn.log
+#  if [ "$timeslice" != "" ]; then tmproc=`expr $timeslice / 1000`; fi;\\
+#  userdata="yes"; usercode="yes"; kerndata="yes"; kerncode="yes";\\
+#  if [ "$dbloc" != "_" ]; then\\
+#     dbloc1="_"$dbloc;\\
+#  fi;\\
+#  sftype="."$dbloc".s";\\
+#  wftype="."$dbloc".w";\\
+#  bftype="."$dbloc".b";\\
+#  pstname=`echo $skgdir| awk -F/ '{print $NF}'|tr '[A-Z]' '[a-z]'`;\\
+#  logfile=$rfn.log
