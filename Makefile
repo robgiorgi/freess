@@ -86,15 +86,15 @@ install:
 test: all
 	@{ a=`./run-ex1.sh -int no|tail -2`;g=`echo "$$a"|tail -1`; \
            c=`echo "$$a"|head -1|sed 's/.*CK=\([0-9][0-9]*\).*/\1/g'`; \
-	   if [ "$$g" = "Goodbye." -a "$$c" = "20" ]; then echo "* TEST1: PASSED"; \
+	   if [ "$$g" = "Goodbye." -a "$$c" = "19" ]; then echo "* TEST1: PASSED"; \
 	   else echo "* TEST1: FAILED"; fi; }
 	@{ a=`./run-ex2.sh -int no|tail -2`;g=`echo "$$a"|tail -1`; \
            c=`echo "$$a"|head -1|sed 's/.*CK=\([0-9][0-9]*\).*/\1/g'`; \
-	   if [ "$$g" = "Goodbye." -a "$$c" = "11" ]; then echo "* TEST2: PASSED"; \
+	   if [ "$$g" = "Goodbye." -a "$$c" = "12" ]; then echo "* TEST2: PASSED"; \
 	   else echo "* TEST2: FAILED"; fi; }
 	@{ a=`./run-ex3.sh -int no|tail -2`;g=`echo "$$a"|tail -1`; \
            c=`echo "$$a"|head -1|sed 's/.*CK=\([0-9][0-9]*\).*/\1/g'`; \
-	   if [ "$$g" = "Goodbye." -a "$$c" = "14" ]; then echo "* TEST3: PASSED"; \
+	   if [ "$$g" = "Goodbye." -a "$$c" = "22" ]; then echo "* TEST3: PASSED"; \
 	   else echo "* TEST3: FAILED"; fi; }
 	@for i in test*; do \
 	   if [ -d $$i ]; then cd $$i; $(MAKE) test; cd ..; fi \

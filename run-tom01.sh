@@ -20,10 +20,10 @@ cat <<EOF >$testprog
 2  6  1  400 # SW
 6  1  1  8   # ADDI
 9  3  1  800 # SGTI
-3  3  0  -7  # BEQ
+3  3  0  -8  # BEQ
 EOF
 
 
-cmd="./freess -exe $testprog -pw 8 -wins 99 -pregs 8 -robs 99 -lqs 3 -sqs 3 -llat 1 -afu 1 -dlat 15 -dpipe no -dfu 1 -mfu 1 -mlat 8 -mpipe no -stck -1 -fw 1 -wblat 1 -cw 1 -ww 99 -dw 1 -fw 1 -pw 99 -ioi no -ioc no -slat 0 -wins 30 -preg 30 -spec no -iw 10 $*"
+cmd="./freess -exe $testprog -pw 8 -wins 99 -pregs 8 -robs 99 -lqs 3 -sqs 3 -llat 1 -afu 1 -dlat 15 -dpipe no -dfu 1 -mfu 1 -mlat 8 -mpipe no -stck -1 -fw 1 -wblat 1 -cw 1 -ww 99 -dw 1 -fw 1 -pw 99 -ioi no -ioc no -slat 1 -wins 30 -preg 30 -spec no -iw 10 -swaits yes $*"
 echo "$cmd"
 $cmd

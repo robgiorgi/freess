@@ -52,6 +52,7 @@ typedef struct ArchitectureTAG
 	int     pregs;
 	char    pipestruct[MAXFILENAMELEN];
 	int     uni_lsu;
+	int     load_has_pri;
 	int     io_issue;
 	int     io_complete;
 	int     uni_di;
@@ -82,6 +83,7 @@ typedef struct ArchitectureTAG
 	int     s_fu;
 	int     s_lat;
 	int     s_pipe;
+	int     s_waits;
 	int     b_fu;
 	int     b_lat;
 	int     b_rsn;

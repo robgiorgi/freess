@@ -19,9 +19,9 @@ MODIFIED BY : XX[XX-XXX-XXXX]
 #define PROG_NAME       "freess"
 #define PROG_PRESEN     \
    "Free Superscalar Simulator - Copyright Roberto Giorgi - giorgi@acm.org\n"\
-   "v1.1 - Released 15-Oct-125 "
+   "v1.1 - Released 19-Oct-125 "
 #define PROG_PRESEN2    \
-   "FREESS v1.1 - Released 15-Oct-125 "
+   "FREESS v1.1 - Released 19-Oct-125 "
 #define PROG_ULINE      \
    "-------------------------------------------------------------------"
 
@@ -67,45 +67,47 @@ static char	clv7[MAXLINELEN] = "8";
 static char	clv8[MAXLINELEN] = "24";
 static char	clv9[MAXLINELEN] = "FDPIXWC";
 static char	clv10[MAXLINELEN] = "yes";
-static char	clv11[MAXLINELEN] = "no";
+static char	clv11[MAXLINELEN] = "yes";
 static char	clv12[MAXLINELEN] = "no";
-static char	clv13[MAXLINELEN] = "yes";
-static char	clv14[MAXLINELEN] = "4";
+static char	clv13[MAXLINELEN] = "no";
+static char	clv14[MAXLINELEN] = "yes";
 static char	clv15[MAXLINELEN] = "4";
 static char	clv16[MAXLINELEN] = "4";
 static char	clv17[MAXLINELEN] = "4";
 static char	clv18[MAXLINELEN] = "4";
 static char	clv19[MAXLINELEN] = "4";
-static char	clv20[MAXLINELEN] = "16";
+static char	clv20[MAXLINELEN] = "4";
 static char	clv21[MAXLINELEN] = "16";
-static char	clv22[MAXLINELEN] = "4";
-static char	clv23[MAXLINELEN] = "0";
-static char	clv24[MAXLINELEN] = "3";
-static char	clv25[MAXLINELEN] = "1";
-static char	clv26[MAXLINELEN] = "4";
-static char	clv27[MAXLINELEN] = "yes";
-static char	clv28[MAXLINELEN] = "3";
-static char	clv29[MAXLINELEN] = "1";
-static char	clv30[MAXLINELEN] = "4";
-static char	clv31[MAXLINELEN] = "yes";
-static char	clv32[MAXLINELEN] = "3";
-static char	clv33[MAXLINELEN] = "4";
-static char	clv34[MAXLINELEN] = "1";
+static char	clv22[MAXLINELEN] = "16";
+static char	clv23[MAXLINELEN] = "4";
+static char	clv24[MAXLINELEN] = "0";
+static char	clv25[MAXLINELEN] = "3";
+static char	clv26[MAXLINELEN] = "1";
+static char	clv27[MAXLINELEN] = "4";
+static char	clv28[MAXLINELEN] = "yes";
+static char	clv29[MAXLINELEN] = "3";
+static char	clv30[MAXLINELEN] = "1";
+static char	clv31[MAXLINELEN] = "4";
+static char	clv32[MAXLINELEN] = "yes";
+static char	clv33[MAXLINELEN] = "3";
+static char	clv34[MAXLINELEN] = "4";
 static char	clv35[MAXLINELEN] = "1";
-static char	clv36[MAXLINELEN] = "2";
-static char	clv37[MAXLINELEN] = "yes";
-static char	clv38[MAXLINELEN] = "1";
+static char	clv36[MAXLINELEN] = "1";
+static char	clv37[MAXLINELEN] = "2";
+static char	clv38[MAXLINELEN] = "yes";
 static char	clv39[MAXLINELEN] = "1";
-static char	clv40[MAXLINELEN] = "yes";
-static char	clv41[MAXLINELEN] = "1";
-static char	clv42[MAXLINELEN] = "0";
-static char	clv43[MAXLINELEN] = "3";
-static char	clv44[MAXLINELEN] = "1";
-static char	clv45[MAXLINELEN] = "1";
-static char	clv46[MAXLINELEN] = "3";
-static char	clv47[MAXLINELEN] = "yes";
-static char	clv48[MAXLINELEN] = "0";
-static char	clv49[MAXLINELEN] = "def.log";
+static char	clv40[MAXLINELEN] = "1";
+static char	clv41[MAXLINELEN] = "yes";
+static char	clv42[MAXLINELEN] = "no";
+static char	clv43[MAXLINELEN] = "1";
+static char	clv44[MAXLINELEN] = "0";
+static char	clv45[MAXLINELEN] = "3";
+static char	clv46[MAXLINELEN] = "1";
+static char	clv47[MAXLINELEN] = "1";
+static char	clv48[MAXLINELEN] = "3";
+static char	clv49[MAXLINELEN] = "yes";
+static char	clv50[MAXLINELEN] = "0";
+static char	clv51[MAXLINELEN] = "def.log";
 
 
 static struct option long_options[] =
@@ -130,6 +132,7 @@ static struct option long_options[] =
   {"pregs", required_argument, NULL, 0},
   {"pstruct", required_argument, NULL, 0},
   {"unilsu", required_argument, NULL, 0},
+  {"loadpri", required_argument, NULL, 0},
   {"ioi", required_argument, NULL, 0},
   {"ioc", required_argument, NULL, 0},
   {"unidi", required_argument, NULL, 0},
@@ -160,6 +163,7 @@ static struct option long_options[] =
   {"sfu	", required_argument, NULL, 0},
   {"slat", required_argument, NULL, 0},
   {"spipe", required_argument, NULL, 0},
+  {"swaits", required_argument, NULL, 0},
   {"bfu	", required_argument, NULL, 0},
   {"blat", required_argument, NULL, 0},
   {"brsn", required_argument, NULL, 0},
@@ -196,9 +200,10 @@ static IniSection ArchitectureSec[] =
    "Physical Registers",		NUMVAL,	1,	MAXPHYSREGS,	&AA.pregs,
    "Pipeline Structure",		STRING,	0,	0,	&AA.pipestruct,
    "Unified LSU",			YES_NO,	0,	0,	&AA.uni_lsu,
+   "Load over Store Pri",		YES_NO,	0,	0,	&AA.load_has_pri,
    "In-Order Issue",			YES_NO,	0,	0,	&AA.io_issue,
    "In-Order Complete",			YES_NO,	0,	0,	&AA.io_complete,
-   "Unified Dispatch/Issue",		YES_NO,	0,	0,	&AA.uni_di,
+   "Unified Disp./Issue",		YES_NO,	0,	0,	&AA.uni_di,
    "Fetch Width",			NUMVAL,	1,	MAXISSUEWIDTH,	&AA.f_width,
    "Decode Width",			NUMVAL,	1,	MAXISSUEWIDTH,	&AA.d_width,
    "Dispatch Width",			NUMVAL,	1,	MAXISSUEWIDTH,	&AA.p_width,
@@ -211,21 +216,22 @@ static IniSection ArchitectureSec[] =
    "Integer ALU Latency",		NUMVAL,	0,	MAXLATENCY,	&AA.a_lat,
    "Integer ALU RSs",			NUMVAL,	0,	MAXRSPERFU,	&AA.a_rsn,
    "Integer Mult. Units",		NUMVAL,	1,	MAXINTFU,	&AA.im_fu,
-   "Integer Mult. Latency",		NUMVAL,	1,	MAXLATENCY,	&AA.im_lat,
-   "Integer Mult. Pipe",		YES_NO,	0,	0,	&AA.im_pipe,
-   "Integer Mult. RSs",			NUMVAL,	0,	MAXRSPERFU,	&AA.im_rsn,
-   "Integer Div.  Units",		NUMVAL,	1,	MAXINTFU,	&AA.id_fu,
-   "Integer Div.  Latency",		NUMVAL,	1,	MAXLATENCY,	&AA.id_lat,
-   "Integer Div.  Pipe",		YES_NO,	0,	0,	&AA.id_pipe,
-   "Integer Div.  RSs",			NUMVAL,	0,	MAXRSPERFU,	&AA.id_rsn,
+   "Integer Mul. Latency",		NUMVAL,	1,	MAXLATENCY,	&AA.im_lat,
+   "Integer Mul. Pipe",			YES_NO,	0,	0,	&AA.im_pipe,
+   "Integer Mul. RSs",			NUMVAL,	0,	MAXRSPERFU,	&AA.im_rsn,
+   "Integer Div. Units",		NUMVAL,	1,	MAXINTFU,	&AA.id_fu,
+   "Integer Div. Latency",		NUMVAL,	1,	MAXLATENCY,	&AA.id_lat,
+   "Integer Div. Pipe",			YES_NO,	0,	0,	&AA.id_pipe,
+   "Integer Div. RSs",			NUMVAL,	0,	MAXRSPERFU,	&AA.id_rsn,
    "Floating Point Units",		NUMVAL,	1,	MAXFPFU,	&AA.fp_fu,
-   "Floating Point Mult",		NUMVAL,	1,	MAXFPFU,	&AA.fm_fu,
+   "Floating Point Mul",		NUMVAL,	1,	MAXFPFU,	&AA.fm_fu,
    "Load Units",			NUMVAL,	1,	MAXLFU,	&AA.l_fu,
    "Load Latency",			NUMVAL,	1,	MAXLATENCY,	&AA.l_lat,
    "Load Pipe",				YES_NO,	0,	0,	&AA.l_pipe,
    "Store Units",			NUMVAL,	1,	MAXSFU,	&AA.s_fu,
    "Store Latency",			NUMVAL,	1,	MAXLATENCY,	&AA.s_lat,
    "Store Pipe",			YES_NO,	0,	0,	&AA.s_pipe,
+   "Store Waits",			YES_NO,	0,	0,	&AA.s_waits,
    "Branch Units",			NUMVAL,	1,	MAXBFU,	&AA.b_fu,
    "Branch Latency",			NUMVAL,	0,	MAXLATENCY,	&AA.b_lat,
    "Branch RSs",			NUMVAL,	0,	MAXRSPERFU,	&AA.b_rsn,
@@ -323,84 +329,88 @@ int MainConstr(int argc, char **argv)
             if (optarg) { strcpy(clv9, optarg); ok = 1; }
          if (strcmp("unilsu", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv10, optarg); ok = 1; }
-         if (strcmp("ioi", long_options[option_index].name) == 0)
+         if (strcmp("loadpri", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv11, optarg); ok = 1; }
-         if (strcmp("ioc", long_options[option_index].name) == 0)
+         if (strcmp("ioi", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv12, optarg); ok = 1; }
-         if (strcmp("unidi", long_options[option_index].name) == 0)
+         if (strcmp("ioc", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv13, optarg); ok = 1; }
-         if (strcmp("fw", long_options[option_index].name) == 0)
+         if (strcmp("unidi", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv14, optarg); ok = 1; }
-         if (strcmp("dw", long_options[option_index].name) == 0)
+         if (strcmp("fw", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv15, optarg); ok = 1; }
-         if (strcmp("pw", long_options[option_index].name) == 0)
+         if (strcmp("dw", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv16, optarg); ok = 1; }
-         if (strcmp("iw", long_options[option_index].name) == 0)
+         if (strcmp("pw", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv17, optarg); ok = 1; }
-         if (strcmp("ww", long_options[option_index].name) == 0)
+         if (strcmp("iw", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv18, optarg); ok = 1; }
-         if (strcmp("cw", long_options[option_index].name) == 0)
+         if (strcmp("ww", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv19, optarg); ok = 1; }
-         if (strcmp("wins	", long_options[option_index].name) == 0)
+         if (strcmp("cw", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv20, optarg); ok = 1; }
-         if (strcmp("robs	", long_options[option_index].name) == 0)
+         if (strcmp("wins	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv21, optarg); ok = 1; }
-         if (strcmp("afu	", long_options[option_index].name) == 0)
+         if (strcmp("robs	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv22, optarg); ok = 1; }
-         if (strcmp("alat", long_options[option_index].name) == 0)
+         if (strcmp("afu	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv23, optarg); ok = 1; }
-         if (strcmp("arsn", long_options[option_index].name) == 0)
+         if (strcmp("alat", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv24, optarg); ok = 1; }
-         if (strcmp("mfu	", long_options[option_index].name) == 0)
+         if (strcmp("arsn", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv25, optarg); ok = 1; }
-         if (strcmp("mlat", long_options[option_index].name) == 0)
+         if (strcmp("mfu	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv26, optarg); ok = 1; }
-         if (strcmp("mpipe", long_options[option_index].name) == 0)
+         if (strcmp("mlat", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv27, optarg); ok = 1; }
-         if (strcmp("mrsn", long_options[option_index].name) == 0)
+         if (strcmp("mpipe", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv28, optarg); ok = 1; }
-         if (strcmp("dfu	", long_options[option_index].name) == 0)
+         if (strcmp("mrsn", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv29, optarg); ok = 1; }
-         if (strcmp("dlat", long_options[option_index].name) == 0)
+         if (strcmp("dfu	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv30, optarg); ok = 1; }
-         if (strcmp("dpipe", long_options[option_index].name) == 0)
+         if (strcmp("dlat", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv31, optarg); ok = 1; }
-         if (strcmp("drsn", long_options[option_index].name) == 0)
+         if (strcmp("dpipe", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv32, optarg); ok = 1; }
-         if (strcmp("ffu	", long_options[option_index].name) == 0)
+         if (strcmp("drsn", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv33, optarg); ok = 1; }
-         if (strcmp("xfu	", long_options[option_index].name) == 0)
+         if (strcmp("ffu	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv34, optarg); ok = 1; }
-         if (strcmp("lfu	", long_options[option_index].name) == 0)
+         if (strcmp("xfu	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv35, optarg); ok = 1; }
-         if (strcmp("llat", long_options[option_index].name) == 0)
+         if (strcmp("lfu	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv36, optarg); ok = 1; }
-         if (strcmp("lpipe", long_options[option_index].name) == 0)
+         if (strcmp("llat", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv37, optarg); ok = 1; }
-         if (strcmp("sfu	", long_options[option_index].name) == 0)
+         if (strcmp("lpipe", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv38, optarg); ok = 1; }
-         if (strcmp("slat", long_options[option_index].name) == 0)
+         if (strcmp("sfu	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv39, optarg); ok = 1; }
-         if (strcmp("spipe", long_options[option_index].name) == 0)
+         if (strcmp("slat", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv40, optarg); ok = 1; }
-         if (strcmp("bfu	", long_options[option_index].name) == 0)
+         if (strcmp("spipe", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv41, optarg); ok = 1; }
-         if (strcmp("blat", long_options[option_index].name) == 0)
+         if (strcmp("swaits", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv42, optarg); ok = 1; }
-         if (strcmp("brsn", long_options[option_index].name) == 0)
+         if (strcmp("bfu	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv43, optarg); ok = 1; }
-         if (strcmp("lqs	", long_options[option_index].name) == 0)
+         if (strcmp("blat", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv44, optarg); ok = 1; }
-         if (strcmp("sqs	", long_options[option_index].name) == 0)
+         if (strcmp("brsn", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv45, optarg); ok = 1; }
-         if (strcmp("lsrsn", long_options[option_index].name) == 0)
+         if (strcmp("lqs	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv46, optarg); ok = 1; }
-         if (strcmp("spec", long_options[option_index].name) == 0)
+         if (strcmp("sqs	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv47, optarg); ok = 1; }
-         if (strcmp("wblat	", long_options[option_index].name) == 0)
+         if (strcmp("lsrsn", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv48, optarg); ok = 1; }
-         if (strcmp("logfile", long_options[option_index].name) == 0)
+         if (strcmp("spec", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv49, optarg); ok = 1; }
+         if (strcmp("wblat	", long_options[option_index].name) == 0)
+            if (optarg) { strcpy(clv50, optarg); ok = 1; }
+         if (strcmp("logfile", long_options[option_index].name) == 0)
+            if (optarg) { strcpy(clv51, optarg); ok = 1; }
 
          break;
       case 'i':
@@ -441,45 +451,47 @@ int MainConstr(int argc, char **argv)
    strcat(iniv, "pregs="); strcat(iniv, clv8); strcat(iniv, ";");
    strcat(iniv, "pipestruct="); strcat(iniv, clv9); strcat(iniv, ";");
    strcat(iniv, "uni_lsu="); strcat(iniv, clv10); strcat(iniv, ";");
-   strcat(iniv, "io_issue="); strcat(iniv, clv11); strcat(iniv, ";");
-   strcat(iniv, "io_complete="); strcat(iniv, clv12); strcat(iniv, ";");
-   strcat(iniv, "uni_di="); strcat(iniv, clv13); strcat(iniv, ";");
-   strcat(iniv, "f_width="); strcat(iniv, clv14); strcat(iniv, ";");
-   strcat(iniv, "d_width="); strcat(iniv, clv15); strcat(iniv, ";");
-   strcat(iniv, "p_width="); strcat(iniv, clv16); strcat(iniv, ";");
-   strcat(iniv, "i_width="); strcat(iniv, clv17); strcat(iniv, ";");
-   strcat(iniv, "w_width="); strcat(iniv, clv18); strcat(iniv, ";");
-   strcat(iniv, "c_width="); strcat(iniv, clv19); strcat(iniv, ";");
-   strcat(iniv, "win_size="); strcat(iniv, clv20); strcat(iniv, ";");
-   strcat(iniv, "rob_size="); strcat(iniv, clv21); strcat(iniv, ";");
-   strcat(iniv, "int_fu="); strcat(iniv, clv22); strcat(iniv, ";");
-   strcat(iniv, "a_lat="); strcat(iniv, clv23); strcat(iniv, ";");
-   strcat(iniv, "a_rsn="); strcat(iniv, clv24); strcat(iniv, ";");
-   strcat(iniv, "im_fu="); strcat(iniv, clv25); strcat(iniv, ";");
-   strcat(iniv, "im_lat="); strcat(iniv, clv26); strcat(iniv, ";");
-   strcat(iniv, "im_pipe="); strcat(iniv, clv27); strcat(iniv, ";");
-   strcat(iniv, "im_rsn="); strcat(iniv, clv28); strcat(iniv, ";");
-   strcat(iniv, "id_fu="); strcat(iniv, clv29); strcat(iniv, ";");
-   strcat(iniv, "id_lat="); strcat(iniv, clv30); strcat(iniv, ";");
-   strcat(iniv, "id_pipe="); strcat(iniv, clv31); strcat(iniv, ";");
-   strcat(iniv, "id_rsn="); strcat(iniv, clv32); strcat(iniv, ";");
-   strcat(iniv, "fp_fu="); strcat(iniv, clv33); strcat(iniv, ";");
-   strcat(iniv, "fm_fu="); strcat(iniv, clv34); strcat(iniv, ";");
-   strcat(iniv, "l_fu="); strcat(iniv, clv35); strcat(iniv, ";");
-   strcat(iniv, "l_lat="); strcat(iniv, clv36); strcat(iniv, ";");
-   strcat(iniv, "l_pipe="); strcat(iniv, clv37); strcat(iniv, ";");
-   strcat(iniv, "s_fu="); strcat(iniv, clv38); strcat(iniv, ";");
-   strcat(iniv, "s_lat="); strcat(iniv, clv39); strcat(iniv, ";");
-   strcat(iniv, "s_pipe="); strcat(iniv, clv40); strcat(iniv, ";");
-   strcat(iniv, "b_fu="); strcat(iniv, clv41); strcat(iniv, ";");
-   strcat(iniv, "b_lat="); strcat(iniv, clv42); strcat(iniv, ";");
-   strcat(iniv, "b_rsn="); strcat(iniv, clv43); strcat(iniv, ";");
-   strcat(iniv, "lqsize="); strcat(iniv, clv44); strcat(iniv, ";");
-   strcat(iniv, "sqsize="); strcat(iniv, clv45); strcat(iniv, ";");
-   strcat(iniv, "ls_rsn="); strcat(iniv, clv46); strcat(iniv, ";");
-   strcat(iniv, "speculation="); strcat(iniv, clv47); strcat(iniv, ";");
-   strcat(iniv, "wblat="); strcat(iniv, clv48); strcat(iniv, ";");
-   strcat(iniv, "logfile="); strcat(iniv, clv49); strcat(iniv, ";");
+   strcat(iniv, "load_has_pri="); strcat(iniv, clv11); strcat(iniv, ";");
+   strcat(iniv, "io_issue="); strcat(iniv, clv12); strcat(iniv, ";");
+   strcat(iniv, "io_complete="); strcat(iniv, clv13); strcat(iniv, ";");
+   strcat(iniv, "uni_di="); strcat(iniv, clv14); strcat(iniv, ";");
+   strcat(iniv, "f_width="); strcat(iniv, clv15); strcat(iniv, ";");
+   strcat(iniv, "d_width="); strcat(iniv, clv16); strcat(iniv, ";");
+   strcat(iniv, "p_width="); strcat(iniv, clv17); strcat(iniv, ";");
+   strcat(iniv, "i_width="); strcat(iniv, clv18); strcat(iniv, ";");
+   strcat(iniv, "w_width="); strcat(iniv, clv19); strcat(iniv, ";");
+   strcat(iniv, "c_width="); strcat(iniv, clv20); strcat(iniv, ";");
+   strcat(iniv, "win_size="); strcat(iniv, clv21); strcat(iniv, ";");
+   strcat(iniv, "rob_size="); strcat(iniv, clv22); strcat(iniv, ";");
+   strcat(iniv, "int_fu="); strcat(iniv, clv23); strcat(iniv, ";");
+   strcat(iniv, "a_lat="); strcat(iniv, clv24); strcat(iniv, ";");
+   strcat(iniv, "a_rsn="); strcat(iniv, clv25); strcat(iniv, ";");
+   strcat(iniv, "im_fu="); strcat(iniv, clv26); strcat(iniv, ";");
+   strcat(iniv, "im_lat="); strcat(iniv, clv27); strcat(iniv, ";");
+   strcat(iniv, "im_pipe="); strcat(iniv, clv28); strcat(iniv, ";");
+   strcat(iniv, "im_rsn="); strcat(iniv, clv29); strcat(iniv, ";");
+   strcat(iniv, "id_fu="); strcat(iniv, clv30); strcat(iniv, ";");
+   strcat(iniv, "id_lat="); strcat(iniv, clv31); strcat(iniv, ";");
+   strcat(iniv, "id_pipe="); strcat(iniv, clv32); strcat(iniv, ";");
+   strcat(iniv, "id_rsn="); strcat(iniv, clv33); strcat(iniv, ";");
+   strcat(iniv, "fp_fu="); strcat(iniv, clv34); strcat(iniv, ";");
+   strcat(iniv, "fm_fu="); strcat(iniv, clv35); strcat(iniv, ";");
+   strcat(iniv, "l_fu="); strcat(iniv, clv36); strcat(iniv, ";");
+   strcat(iniv, "l_lat="); strcat(iniv, clv37); strcat(iniv, ";");
+   strcat(iniv, "l_pipe="); strcat(iniv, clv38); strcat(iniv, ";");
+   strcat(iniv, "s_fu="); strcat(iniv, clv39); strcat(iniv, ";");
+   strcat(iniv, "s_lat="); strcat(iniv, clv40); strcat(iniv, ";");
+   strcat(iniv, "s_pipe="); strcat(iniv, clv41); strcat(iniv, ";");
+   strcat(iniv, "s_waits="); strcat(iniv, clv42); strcat(iniv, ";");
+   strcat(iniv, "b_fu="); strcat(iniv, clv43); strcat(iniv, ";");
+   strcat(iniv, "b_lat="); strcat(iniv, clv44); strcat(iniv, ";");
+   strcat(iniv, "b_rsn="); strcat(iniv, clv45); strcat(iniv, ";");
+   strcat(iniv, "lqsize="); strcat(iniv, clv46); strcat(iniv, ";");
+   strcat(iniv, "sqsize="); strcat(iniv, clv47); strcat(iniv, ";");
+   strcat(iniv, "ls_rsn="); strcat(iniv, clv48); strcat(iniv, ";");
+   strcat(iniv, "speculation="); strcat(iniv, clv49); strcat(iniv, ";");
+   strcat(iniv, "wblat="); strcat(iniv, clv50); strcat(iniv, ";");
+   strcat(iniv, "logfile="); strcat(iniv, clv51); strcat(iniv, ";");
 
 
    strcpy(iniv1, iniv);
@@ -506,45 +518,47 @@ int MainConstr(int argc, char **argv)
    IsNumVal(clv8, &(AA.pregs));;
    strcpy(AA.pipestruct, clv9);
    AA.uni_lsu = (0 == strcmp(clv10, "yes") ? 1 : 0);
-   AA.io_issue = (0 == strcmp(clv11, "yes") ? 1 : 0);
-   AA.io_complete = (0 == strcmp(clv12, "yes") ? 1 : 0);
-   AA.uni_di = (0 == strcmp(clv13, "yes") ? 1 : 0);
-   IsNumVal(clv14, &(AA.f_width));;
-   IsNumVal(clv15, &(AA.d_width));;
-   IsNumVal(clv16, &(AA.p_width));;
-   IsNumVal(clv17, &(AA.i_width));;
-   IsNumVal(clv18, &(AA.w_width));;
-   IsNumVal(clv19, &(AA.c_width));;
-   IsNumVal(clv20, &(AA.win_size));;
-   IsNumVal(clv21, &(AA.rob_size));;
-   IsNumVal(clv22, &(AA.int_fu));;
-   IsNumVal(clv23, &(AA.a_lat));;
-   IsNumVal(clv24, &(AA.a_rsn));;
-   IsNumVal(clv25, &(AA.im_fu));;
-   IsNumVal(clv26, &(AA.im_lat));;
-   AA.im_pipe = (0 == strcmp(clv27, "yes") ? 1 : 0);
-   IsNumVal(clv28, &(AA.im_rsn));;
-   IsNumVal(clv29, &(AA.id_fu));;
-   IsNumVal(clv30, &(AA.id_lat));;
-   AA.id_pipe = (0 == strcmp(clv31, "yes") ? 1 : 0);
-   IsNumVal(clv32, &(AA.id_rsn));;
-   IsNumVal(clv33, &(AA.fp_fu));;
-   IsNumVal(clv34, &(AA.fm_fu));;
-   IsNumVal(clv35, &(AA.l_fu));;
-   IsNumVal(clv36, &(AA.l_lat));;
-   AA.l_pipe = (0 == strcmp(clv37, "yes") ? 1 : 0);
-   IsNumVal(clv38, &(AA.s_fu));;
-   IsNumVal(clv39, &(AA.s_lat));;
-   AA.s_pipe = (0 == strcmp(clv40, "yes") ? 1 : 0);
-   IsNumVal(clv41, &(AA.b_fu));;
-   IsNumVal(clv42, &(AA.b_lat));;
-   IsNumVal(clv43, &(AA.b_rsn));;
-   IsNumVal(clv44, &(AA.lqsize));;
-   IsNumVal(clv45, &(AA.sqsize));;
-   IsNumVal(clv46, &(AA.ls_rsn));;
-   AA.speculation = (0 == strcmp(clv47, "yes") ? 1 : 0);
-   IsNumVal(clv48, &(AA.wblat));;
-   strcpy(Pro.logfile, clv49);
+   AA.load_has_pri = (0 == strcmp(clv11, "yes") ? 1 : 0);
+   AA.io_issue = (0 == strcmp(clv12, "yes") ? 1 : 0);
+   AA.io_complete = (0 == strcmp(clv13, "yes") ? 1 : 0);
+   AA.uni_di = (0 == strcmp(clv14, "yes") ? 1 : 0);
+   IsNumVal(clv15, &(AA.f_width));;
+   IsNumVal(clv16, &(AA.d_width));;
+   IsNumVal(clv17, &(AA.p_width));;
+   IsNumVal(clv18, &(AA.i_width));;
+   IsNumVal(clv19, &(AA.w_width));;
+   IsNumVal(clv20, &(AA.c_width));;
+   IsNumVal(clv21, &(AA.win_size));;
+   IsNumVal(clv22, &(AA.rob_size));;
+   IsNumVal(clv23, &(AA.int_fu));;
+   IsNumVal(clv24, &(AA.a_lat));;
+   IsNumVal(clv25, &(AA.a_rsn));;
+   IsNumVal(clv26, &(AA.im_fu));;
+   IsNumVal(clv27, &(AA.im_lat));;
+   AA.im_pipe = (0 == strcmp(clv28, "yes") ? 1 : 0);
+   IsNumVal(clv29, &(AA.im_rsn));;
+   IsNumVal(clv30, &(AA.id_fu));;
+   IsNumVal(clv31, &(AA.id_lat));;
+   AA.id_pipe = (0 == strcmp(clv32, "yes") ? 1 : 0);
+   IsNumVal(clv33, &(AA.id_rsn));;
+   IsNumVal(clv34, &(AA.fp_fu));;
+   IsNumVal(clv35, &(AA.fm_fu));;
+   IsNumVal(clv36, &(AA.l_fu));;
+   IsNumVal(clv37, &(AA.l_lat));;
+   AA.l_pipe = (0 == strcmp(clv38, "yes") ? 1 : 0);
+   IsNumVal(clv39, &(AA.s_fu));;
+   IsNumVal(clv40, &(AA.s_lat));;
+   AA.s_pipe = (0 == strcmp(clv41, "yes") ? 1 : 0);
+   AA.s_waits = (0 == strcmp(clv42, "yes") ? 1 : 0);
+   IsNumVal(clv43, &(AA.b_fu));;
+   IsNumVal(clv44, &(AA.b_lat));;
+   IsNumVal(clv45, &(AA.b_rsn));;
+   IsNumVal(clv46, &(AA.lqsize));;
+   IsNumVal(clv47, &(AA.sqsize));;
+   IsNumVal(clv48, &(AA.ls_rsn));;
+   AA.speculation = (0 == strcmp(clv49, "yes") ? 1 : 0);
+   IsNumVal(clv50, &(AA.wblat));;
+   strcpy(Pro.logfile, clv51);
 
    strcpy(flogname, Pro.logfile);
 
@@ -618,9 +632,10 @@ Options:\n\
   -pregs <physical_registers>	  Number of Physical Regs (24)\n\
   -pstruct <pipeline_structure>	  Pipeline Structure (FDPIXWC)\n\
   -unilsu <unified_lsu>		  Unified LSU (yes)\n\
+  -loadpri <load_over_store_pri>  Load over Store Pri. (yes)\n\
   -ioi <in-order_issue>		  In-Order Issue (no)\n\
   -ioc <in-order_complete>	  In-Order Complete (no)\n\
-  -unidi <unified_dispatch/issue>  Unified Dispatch/Issue (yes)\n\
+  -unidi <unified_disp./issue>	  Unified Dispatch/Issue (yes)\n\
   -fw <fetch_width>		  Fetch Width (4)\n\
   -dw <decode_width>		  Decode Width (4)\n\
   -pw <dispatch_width>		  Dispatch Width (4)\n\
@@ -633,21 +648,22 @@ Options:\n\
   -alat <integer_alu_latency>	  Latency of INT ALU FU (0)\n\
   -arsn <integer_alu_rss>	  Reservation St. per FU (3)\n\
   -mfu	 <integer_mult._units>	  Number of Mult. FU (1)\n\
-  -mlat <integer_mult._latency>	  Latency of Mult. FU (4)\n\
-  -mpipe <integer_mult._pipe>	  Pipelinization of Mult. (yes)\n\
-  -mrsn <integer_mult._rss>	  Reservation St. per FU (3)\n\
-  -dfu	 <integer_div.__units>	  Number of Div. FU (1)\n\
-  -dlat <integer_div.__latency>	  Latency of Div. FU (4)\n\
-  -dpipe <integer_div.__pipe>	  Pipelinization of Div. (yes)\n\
-  -drsn <integer_div.__rss>	  Reservation St. per FU (3)\n\
+  -mlat <integer_mul._latency>	  Latency of Mult. FU (4)\n\
+  -mpipe <integer_mul._pipe>	  Pipelinization of Mult. (yes)\n\
+  -mrsn <integer_mul._rss>	  Reservation St. per FU (3)\n\
+  -dfu	 <integer_div._units>	  Number of Div. FU (1)\n\
+  -dlat <integer_div._latency>	  Latency of Div. FU (4)\n\
+  -dpipe <integer_div._pipe>	  Pipelinization of Div. (yes)\n\
+  -drsn <integer_div._rss>	  Reservation St. per FU (3)\n\
   -ffu	 <floating_point_units>	  Number of FP FU (4)\n\
-  -xfu	 <floating_point_mult>	  Number of FP Mult. FU (1)\n\
+  -xfu	 <floating_point_mul>	  Number of FP Mult. FU (1)\n\
   -lfu	 <load_units>		  Number of Load FU (1)\n\
   -llat <load_latency>		  Latency of Load FU (2)\n\
   -lpipe <load_pipe>		  Pipelinization of Load (yes)\n\
   -sfu	 <store_units>		  Number of Store FU (1)\n\
   -slat <store_latency>		  Latency of Store FU (1)\n\
   -spipe <store_pipe>		  Pipelinization of Store (yes)\n\
+  -swaits <store_waits>		  Store waits completion (no)\n\
   -bfu	 <branch_units>		  Number of Branch FU (1)\n\
   -blat <branch_latency>	  Latency of Branch FU (0)\n\
   -brsn <branch_rss>		  Reservation St. per FU (3)\n\

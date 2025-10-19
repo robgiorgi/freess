@@ -9,16 +9,17 @@ Entry = Interactive;		interactive;	YES_NO; 0;      0;              yes;         
 Entry = Mode;			batch;		YES_NO; 0;      0;              no;                     Batch File Mode;         4;     batch
 Entry = Iterations;             iterations;     NUMVAL; 1;      0;              3;                      Number of Iterations;    4;     iter
 Entry = Starting Clock Cycle;	start_ck;	NUMVAL;	-100;	100;		0;			Starting Clock Cycle;	 4;	stck
-
+#-------------------------------------------------
 Ini Section Name		= Architecture; AA
 #	Name			Var Name	Type	L	H		Default			Description		Prio	Opt
 Entry = Logical Registers;	lregs;		NUMVAL;	1;	MAXPHYSREGS;	8;			Number of Logical Regs;  4;	lregs
 Entry = Physical Registers;	pregs;		NUMVAL;	1;	MAXPHYSREGS;	24;			Number of Physical Regs; 4;	pregs
 Entry = Pipeline Structure;	pipestruct;	STRING;	1;	MAXFILENAMELEN;	FDPIXWC;		Pipeline Structure; 	 4;	pstruct
 Entry = Unified LSU;		uni_lsu;	YES_NO;	0;	0;		yes;			Unified LSU;		 4;	unilsu
+Entry = Load over Store Pri;	load_has_pri;	YES_NO;	0;	0;		yes;			Load over Store Pri.;	 4;	loadpri
 Entry = In-Order Issue;		io_issue;	YES_NO;	0;	0;		no;			In-Order Issue;		 4;	ioi
 Entry = In-Order Complete;	io_complete;	YES_NO;	0;	0;		no;			In-Order Complete;	 4;	ioc
-Entry = Unified Dispatch/Issue;	uni_di;		YES_NO;	0;	0;		yes;			Unified Dispatch/Issue;	 4;	unidi
+Entry = Unified Disp./Issue;	uni_di;		YES_NO;	0;	0;		yes;			Unified Dispatch/Issue;	 4;	unidi
 #
 Entry = Fetch Width;		f_width;	NUMVAL;	1;	MAXISSUEWIDTH;	4;			Fetch Width;		 4;	fw
 Entry = Decode Width;		d_width;	NUMVAL;	1;	MAXISSUEWIDTH;	4;			Decode Width;		 4;	dw
@@ -34,18 +35,18 @@ Entry = Integer ALU Latency;	a_lat;		NUMVAL;	0;	MAXLATENCY;	0;			Latency of INT 
 Entry = Integer ALU RSs;	a_rsn;		NUMVAL;	0;	MAXRSPERFU;	3;			Reservation St. per FU;  4;	arsn
 #
 Entry = Integer Mult. Units;	im_fu;		NUMVAL;	1;	MAXINTFU;	1;			Number of Mult. FU;	 4;	mfu	
-Entry = Integer Mult. Latency;	im_lat;		NUMVAL;	1;	MAXLATENCY;	4;			Latency of Mult. FU;	 4;	mlat
-Entry = Integer Mult. Pipe;	im_pipe;	YES_NO;	0;	0;		yes;			Pipelinization of Mult.; 4;	mpipe
-Entry = Integer Mult. RSs;	im_rsn;		NUMVAL;	0;	MAXRSPERFU;	3;			Reservation St. per FU;  4;	mrsn
+Entry = Integer Mul. Latency;	im_lat;		NUMVAL;	1;	MAXLATENCY;	4;			Latency of Mult. FU;	 4;	mlat
+Entry = Integer Mul. Pipe;	im_pipe;	YES_NO;	0;	0;		yes;			Pipelinization of Mult.; 4;	mpipe
+Entry = Integer Mul. RSs;	im_rsn;		NUMVAL;	0;	MAXRSPERFU;	3;			Reservation St. per FU;  4;	mrsn
 #
-Entry = Integer Div.  Units;	id_fu;		NUMVAL;	1;	MAXINTFU;	1;			Number of Div. FU;	 4;	dfu	
-Entry = Integer Div.  Latency;	id_lat;		NUMVAL;	1;	MAXLATENCY;	4;			Latency of Div. FU;	 4;	dlat
-Entry = Integer Div.  Pipe;	id_pipe;	YES_NO;	0;	0;		yes;			Pipelinization of Div.;  4;	dpipe
-Entry = Integer Div.  RSs;	id_rsn;		NUMVAL;	0;	MAXRSPERFU;	3;			Reservation St. per FU;  4;	drsn
+Entry = Integer Div. Units;	id_fu;		NUMVAL;	1;	MAXINTFU;	1;			Number of Div. FU;	 4;	dfu	
+Entry = Integer Div. Latency;	id_lat;		NUMVAL;	1;	MAXLATENCY;	4;			Latency of Div. FU;	 4;	dlat
+Entry = Integer Div. Pipe;	id_pipe;	YES_NO;	0;	0;		yes;			Pipelinization of Div.;  4;	dpipe
+Entry = Integer Div. RSs;	id_rsn;		NUMVAL;	0;	MAXRSPERFU;	3;			Reservation St. per FU;  4;	drsn
 #
 Entry = Floating Point Units;	fp_fu;		NUMVAL;	1;	MAXFPFU;	4;			Number of FP FU;	 4;	ffu	
 #
-Entry = Floating Point Mult;	fm_fu;		NUMVAL;	1;	MAXFPFU;	1;			Number of FP Mult. FU;	 4;	xfu	
+Entry = Floating Point Mul;	fm_fu;		NUMVAL;	1;	MAXFPFU;	1;			Number of FP Mult. FU;	 4;	xfu	
 #
 Entry = Load Units;		l_fu;		NUMVAL;	1;	MAXLFU;		1;			Number of Load FU;	 4;	lfu	
 Entry = Load Latency;		l_lat;		NUMVAL;	1;	MAXLATENCY;	2;			Latency of Load FU;	 4;	llat
@@ -54,6 +55,7 @@ Entry = Load Pipe;		l_pipe;		YES_NO;	0;	0;		yes;			Pipelinization of Load;  4;	l
 Entry = Store Units;		s_fu;		NUMVAL;	1;	MAXSFU;		1;			Number of Store FU;	 4;	sfu	
 Entry = Store Latency;		s_lat;		NUMVAL;	1;	MAXLATENCY;	1;			Latency of Store FU;	 4;	slat
 Entry = Store Pipe;		s_pipe;		YES_NO;	0;	0;		yes;			Pipelinization of Store; 4;	spipe
+Entry = Store Waits;		s_waits;	YES_NO;	0;	0;		no;			Store waits completion;	 4;	swaits
 #
 Entry = Branch Units;		b_fu;		NUMVAL;	1;	MAXBFU;		1;			Number of Branch FU;	 4;	bfu	
 Entry = Branch Latency;		b_lat;		NUMVAL;	0;	MAXLATENCY;	0;			Latency of Branch FU;	 4;	blat
