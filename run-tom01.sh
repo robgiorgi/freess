@@ -24,6 +24,6 @@ cat <<EOF >$testprog
 EOF
 
 
-cmd="./freess -exe $testprog -pw 8 -wins 99 -pregs 8 -robs 99 -lqs 3 -sqs 3 -llat 1 -afu 1 -dlat 15 -dpipe no -dfu 1 -mfu 1 -mlat 8 -mpipe no -stck -1 -fw 1 -wblat 1 -cw 1 -ww 99 -dw 1 -fw 1 -pw 99 -ioi no -ioc no -slat 1 -wins 30 -preg 30 -spec no -iw 10 -swaits yes $*"
+cmd="./freess -exe $testprog -pw 8 -wins 10 -pregs 8 -robs 20 -lqs 5 -sqs 5 -llat 1 -afu 1 -dlat 15 -dpipe no -dfu 1 -mfu 1 -mlat 8 -mpipe no -stck -1 -fw 1 -wblat 1 -cw 1 -ww 1 -dw 1 -fw 1 -pw 1 -ioi no -ioc no -slat 1 -wins 30 -preg 30 -spec no -iw 10 -swaits yes $*"
 echo "$cmd"
 $cmd
