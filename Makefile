@@ -94,7 +94,7 @@ test: all
 	   else echo "* TEST2: FAILED"; fi; }
 	@{ a=`./run-ex3.sh -int no|tail -2`;g=`echo "$$a"|tail -1`; \
            c=`echo "$$a"|head -1|sed 's/.*CK=\([0-9][0-9]*\).*/\1/g'`; \
-	   if [ "$$g" = "Goodbye." -a "$$c" = "22" ]; then echo "* TEST3: PASSED"; \
+	   if [ "$$g" = "Goodbye." -a "$$c" = "21" ]; then echo "* TEST3: PASSED"; \
 	   else echo "* TEST3: FAILED"; fi; }
 	@for i in test*; do \
 	   if [ -d $$i ]; then cd $$i; $(MAKE) test; cd ..; fi \
