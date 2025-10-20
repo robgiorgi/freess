@@ -44,6 +44,7 @@ typedef struct GeneralTAG
 	int     batch;
 	int     iterations;
 	int     start_ck;
+	int     tomasulo;
 } General;
 
 typedef struct ArchitectureTAG

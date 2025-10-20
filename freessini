@@ -11,6 +11,7 @@
 # -batch	= Batch File Mode
 # -iter		= Number of Iterations
 # -stck		= Starting Clock Cycle
+# -tom		= Tomasulo Pipeline + RS
 # -lregs	= Number of Logical Regs
 # -pregs	= Number of Physical Regs
 # -pstruct	= Pipeline Structure
@@ -115,6 +116,7 @@ interactive=yes
 batch=no
 iterations=3
 start_ck=0
+tomasulo=no
 lregs=8
 pregs=24
 pipestruct=FDPIXWC
@@ -133,15 +135,15 @@ win_size=16
 rob_size=16
 int_fu=4
 a_lat=0
-a_rs=2
+a_rs=99
 im_fu=1
 im_lat=4
 im_pipe=yes
-im_rs=3
+im_rs=99
 id_fu=1
 id_lat=4
 id_pipe=yes
-id_rs=2
+id_rs=99
 fp_fu=4
 fm_fu=1
 l_fu=1
@@ -151,10 +153,10 @@ s_fu=1
 s_lat=1
 s_pipe=yes
 s_waits=no
-ls_rs=2
+ls_rs=99
 b_fu=1
 b_lat=0
-b_rs=2
+b_rs=99
 lqsize=1
 sqsize=1
 speculation=yes
@@ -202,6 +204,10 @@ while [ $# -gt 0 ]; do
    elif [ "'$1'" = "'-stck'" ]; then
       shift
       start_ck=$1
+      shift
+   elif [ "'$1'" = "'-tom'" ]; then
+      shift
+      tomasulo=$1
       shift
    elif [ "'$1'" = "'-lregs'" ]; then
       shift
@@ -411,55 +417,56 @@ uuu="\
  Mode			= __REFO4__		;  Batch File Mode
  Iterations		= __REFO5__		;  Number of Iterations
  Starting Clock Cycle	= __REFO6__		;  Starting Clock Cycle
+ Tomasulo Mode		= __REFO7__		;  Tomasulo Pipeline + RS
 
 [Architecture]							
- Logical Registers	= __REFO7__		;  Number of Logical Regs
- Physical Registers	= __REFO8__		;  Number of Physical Regs
- Pipeline Structure	= __REFO9__		;  Pipeline Structure
- Unified LSU		= __REFO10__		;  Unified LSU
- Load over Store Pri	= __REFO11__		;  Load over Store Pri.
- In-Order Issue		= __REFO12__		;  In-Order Issue
- In-Order Complete	= __REFO13__		;  In-Order Complete
- Unified Disp./Issue	= __REFO14__		;  Unified Dispatch/Issue
- Fetch Width		= __REFO15__		;  Fetch Width
- Decode Width		= __REFO16__		;  Decode Width
- Dispatch Width		= __REFO17__		;  Dispatch Width
- Issue Width		= __REFO18__		;  Issue Width
- Write-Back Width	= __REFO19__		;  Write-Back Width
- Commit Width		= __REFO20__		;  Commit Width
- Window Size		= __REFO21__		;  Instruction Window Size
- ROB Size		= __REFO22__		;  Reorder Buffer Size
- Integer ALU Units	= __REFO23__		;  Number of Int. FU
- Integer ALU Latency	= __REFO24__		;  Latency of INT ALU FU
- Int. ALU Res.Stat.	= __REFO25__		;  Reservation St. per FU
- Integer Mult. Units	= __REFO26__		;  Number of Mult. FU
- Integer Mul. Latency	= __REFO27__		;  Latency of Mult. FU
- Integer Mul. Pipe	= __REFO28__		;  Pipelinization of Mult.
- Int. Mul. Res.Stat.	= __REFO29__		;  Reservation St. per FU
- Integer Div. Units	= __REFO30__		;  Number of Div. FU
- Integer Div. Latency	= __REFO31__		;  Latency of Div. FU
- Integer Div. Pipe	= __REFO32__		;  Pipelinization of Div.
- Int. Div. Res.Stat.	= __REFO33__		;  Reservation St. per FU
- Floating Point Units	= __REFO34__		;  Number of FP FU
- Floating Point Mul	= __REFO35__		;  Number of FP Mult. FU
- Load Units		= __REFO36__		;  Number of Load FU
- Load Latency		= __REFO37__		;  Latency of Load FU
- Load Pipe		= __REFO38__		;  Pipelinization of Load
- Store Units		= __REFO39__		;  Number of Store FU
- Store Latency		= __REFO40__		;  Latency of Store FU
- Store Pipe		= __REFO41__		;  Pipelinization of Store
- Store Waits		= __REFO42__		;  Store waits completion
- Load/Store Res.Stat.	= __REFO43__		;  Reservation St. per FU
- Branch Units		= __REFO44__		;  Number of Branch FU
- Branch Latency		= __REFO45__		;  Latency of Branch FU
- Branch Res.Stat.	= __REFO46__		;  Reservation St. per FU
- Load Queue Size	= __REFO47__		;  Load Queue Size
- Store Queue Size	= __REFO48__		;  Store Queue Size
- Speculation		= __REFO49__		;  Enable Speculation
- Write Back Latency	= __REFO50__		;  Write Back Latency
+ Logical Registers	= __REFO8__		;  Number of Logical Regs
+ Physical Registers	= __REFO9__		;  Number of Physical Regs
+ Pipeline Structure	= __REFO10__		;  Pipeline Structure
+ Unified LSU		= __REFO11__		;  Unified LSU
+ Load over Store Pri	= __REFO12__		;  Load over Store Pri.
+ In-Order Issue		= __REFO13__		;  In-Order Issue
+ In-Order Complete	= __REFO14__		;  In-Order Complete
+ Unified Disp./Issue	= __REFO15__		;  Unified Dispatch/Issue
+ Fetch Width		= __REFO16__		;  Fetch Width
+ Decode Width		= __REFO17__		;  Decode Width
+ Dispatch Width		= __REFO18__		;  Dispatch Width
+ Issue Width		= __REFO19__		;  Issue Width
+ Write-Back Width	= __REFO20__		;  Write-Back Width
+ Commit Width		= __REFO21__		;  Commit Width
+ Window Size		= __REFO22__		;  Instruction Window Size
+ ROB Size		= __REFO23__		;  Reorder Buffer Size
+ Integer ALU Units	= __REFO24__		;  Number of Int. FU
+ Integer ALU Latency	= __REFO25__		;  Latency of INT ALU FU
+ Int. ALU Res.Stat.	= __REFO26__		;  Reservation St. per FU
+ Integer Mult. Units	= __REFO27__		;  Number of Mult. FU
+ Integer Mul. Latency	= __REFO28__		;  Latency of Mult. FU
+ Integer Mul. Pipe	= __REFO29__		;  Pipelinization of Mult.
+ Int. Mul. Res.Stat.	= __REFO30__		;  Reservation St. per FU
+ Integer Div. Units	= __REFO31__		;  Number of Div. FU
+ Integer Div. Latency	= __REFO32__		;  Latency of Div. FU
+ Integer Div. Pipe	= __REFO33__		;  Pipelinization of Div.
+ Int. Div. Res.Stat.	= __REFO34__		;  Reservation St. per FU
+ Floating Point Units	= __REFO35__		;  Number of FP FU
+ Floating Point Mul	= __REFO36__		;  Number of FP Mult. FU
+ Load Units		= __REFO37__		;  Number of Load FU
+ Load Latency		= __REFO38__		;  Latency of Load FU
+ Load Pipe		= __REFO39__		;  Pipelinization of Load
+ Store Units		= __REFO40__		;  Number of Store FU
+ Store Latency		= __REFO41__		;  Latency of Store FU
+ Store Pipe		= __REFO42__		;  Pipelinization of Store
+ Store Waits		= __REFO43__		;  Store waits completion
+ Load/Store Res.Stat.	= __REFO44__		;  Reservation St. per FU
+ Branch Units		= __REFO45__		;  Number of Branch FU
+ Branch Latency		= __REFO46__		;  Latency of Branch FU
+ Branch Res.Stat.	= __REFO47__		;  Reservation St. per FU
+ Load Queue Size	= __REFO48__		;  Load Queue Size
+ Store Queue Size	= __REFO49__		;  Store Queue Size
+ Speculation		= __REFO50__		;  Enable Speculation
+ Write Back Latency	= __REFO51__		;  Write Back Latency
 
 [Program Defaults]						
- Log File Name		= __REFO51__		;  Log File
+ Log File Name		= __REFO52__		;  Log File
 
 
 "
@@ -473,7 +480,7 @@ fi
 
 if [ "$help" = "1" -o "$c" != "0" ]; then
    echo "Usage:"
-   echo "   $scr [-exe <program_name>] [-s <silent>] [-int <interactive>] [-batch <mode>] [-iter <iterations>] [-stck <starting_clock_cycle>] [-lregs <logical_registers>] [-pregs <physical_registers>] [-pstruct <pipeline_structure>] [-unilsu <unified_lsu>] [-loadpri <load_over_store_pri>] [-ioi <in-order_issue>] [-ioc <in-order_complete>] [-unidi <unified_disp./issue>] [-fw <fetch_width>] [-dw <decode_width>] [-pw <dispatch_width>] [-iw <issue_width>] [-ww <write-back_width>] [-cw <commit_width>] [-wins	 <window_size>] [-robs	 <rob_size>] [-afu	 <integer_alu_units>] [-alat <integer_alu_latency>] [-ars <int._alu_res.stat.>] [-mfu	 <integer_mult._units>] [-mlat <integer_mul._latency>] [-mpipe <integer_mul._pipe>] [-mrs <int._mul._res.stat.>] [-dfu	 <integer_div._units>] [-dlat <integer_div._latency>] [-dpipe <integer_div._pipe>] [-drs <int._div._res.stat.>] [-ffu	 <floating_point_units>] [-xfu	 <floating_point_mul>] [-lfu	 <load_units>] [-llat <load_latency>] [-lpipe <load_pipe>] [-sfu	 <store_units>] [-slat <store_latency>] [-spipe <store_pipe>] [-swaits <store_waits>] [-lsrs <load/store_res.stat.>] [-bfu	 <branch_units>] [-blat <branch_latency>] [-brs <branch_res.stat.>] [-lqs	 <load_queue_size>] [-sqs	 <store_queue_size>] [-spec <speculation>] [-wblat	 <write_back_latency>] [-logfile <log_file_name>] "
+   echo "   $scr [-exe <program_name>] [-s <silent>] [-int <interactive>] [-batch <mode>] [-iter <iterations>] [-stck <starting_clock_cycle>] [-tom <tomasulo_mode>] [-lregs <logical_registers>] [-pregs <physical_registers>] [-pstruct <pipeline_structure>] [-unilsu <unified_lsu>] [-loadpri <load_over_store_pri>] [-ioi <in-order_issue>] [-ioc <in-order_complete>] [-unidi <unified_disp./issue>] [-fw <fetch_width>] [-dw <decode_width>] [-pw <dispatch_width>] [-iw <issue_width>] [-ww <write-back_width>] [-cw <commit_width>] [-wins	 <window_size>] [-robs	 <rob_size>] [-afu	 <integer_alu_units>] [-alat <integer_alu_latency>] [-ars <int._alu_res.stat.>] [-mfu	 <integer_mult._units>] [-mlat <integer_mul._latency>] [-mpipe <integer_mul._pipe>] [-mrs <int._mul._res.stat.>] [-dfu	 <integer_div._units>] [-dlat <integer_div._latency>] [-dpipe <integer_div._pipe>] [-drs <int._div._res.stat.>] [-ffu	 <floating_point_units>] [-xfu	 <floating_point_mul>] [-lfu	 <load_units>] [-llat <load_latency>] [-lpipe <load_pipe>] [-sfu	 <store_units>] [-slat <store_latency>] [-spipe <store_pipe>] [-swaits <store_waits>] [-lsrs <load/store_res.stat.>] [-bfu	 <branch_units>] [-blat <branch_latency>] [-brs <branch_res.stat.>] [-lqs	 <load_queue_size>] [-sqs	 <store_queue_size>] [-spec <speculation>] [-wblat	 <write_back_latency>] [-logfile <log_file_name>] "
    echo ""
    echo "   PARAMETER NAME                       DESCRIPTION             DEFAULT VALUE"
    echo "   <program_name>			Name of program		program"
@@ -482,6 +489,7 @@ if [ "$help" = "1" -o "$c" != "0" ]; then
    echo "   <mode>				Batch File Mode		no"
    echo "   <iterations>				Number of Iterations	3"
    echo "   <starting_clock_cycle>		Starting Clock Cycle	0"
+   echo "   <tomasulo_mode>			Tomasulo Pipeline + RS	no"
    echo "   <logical_registers>			Number of Logical Regs	8"
    echo "   <physical_registers>			Number of Physical Regs	24"
    echo "   <pipeline_structure>			Pipeline Structure	FDPIXWC"
@@ -500,15 +508,15 @@ if [ "$help" = "1" -o "$c" != "0" ]; then
    echo "   <rob_size>				Reorder Buffer Size	16"
    echo "   <integer_alu_units>			Number of Int. FU	4"
    echo "   <integer_alu_latency>		Latency of INT ALU FU	0"
-   echo "   <int._alu_res.stat.>			Reservation St. per FU	2"
+   echo "   <int._alu_res.stat.>			Reservation St. per FU	99"
    echo "   <integer_mult._units>		Number of Mult. FU	1"
    echo "   <integer_mul._latency>		Latency of Mult. FU	4"
    echo "   <integer_mul._pipe>			Pipelinization of Mult.	yes"
-   echo "   <int._mul._res.stat.>		Reservation St. per FU	3"
+   echo "   <int._mul._res.stat.>		Reservation St. per FU	99"
    echo "   <integer_div._units>			Number of Div. FU	1"
    echo "   <integer_div._latency>		Latency of Div. FU	4"
    echo "   <integer_div._pipe>			Pipelinization of Div.	yes"
-   echo "   <int._div._res.stat.>		Reservation St. per FU	2"
+   echo "   <int._div._res.stat.>		Reservation St. per FU	99"
    echo "   <floating_point_units>		Number of FP FU		4"
    echo "   <floating_point_mul>			Number of FP Mult. FU	1"
    echo "   <load_units>				Number of Load FU	1"
@@ -518,10 +526,10 @@ if [ "$help" = "1" -o "$c" != "0" ]; then
    echo "   <store_latency>			Latency of Store FU	1"
    echo "   <store_pipe>				Pipelinization of Store	yes"
    echo "   <store_waits>			Store waits completion	no"
-   echo "   <load/store_res.stat.>		Reservation St. per FU	2"
+   echo "   <load/store_res.stat.>		Reservation St. per FU	99"
    echo "   <branch_units>			Number of Branch FU	1"
    echo "   <branch_latency>			Latency of Branch FU	0"
-   echo "   <branch_res.stat.>			Reservation St. per FU	2"
+   echo "   <branch_res.stat.>			Reservation St. per FU	99"
    echo "   <load_queue_size>			Load Queue Size		1"
    echo "   <store_queue_size>			Store Queue Size	1"
    echo "   <speculation>			Enable Speculation	yes"
@@ -548,51 +556,52 @@ s:__REFO3__:$interactive:
 s:__REFO4__:$batch:
 s:__REFO5__:$iterations:
 s:__REFO6__:$start_ck:
-s:__REFO7__:$lregs:
-s:__REFO8__:$pregs:
-s:__REFO9__:$pipestruct:
-s:__REFO10__:$uni_lsu:
-s:__REFO11__:$load_has_pri:
-s:__REFO12__:$io_issue:
-s:__REFO13__:$io_complete:
-s:__REFO14__:$uni_di:
-s:__REFO15__:$f_width:
-s:__REFO16__:$d_width:
-s:__REFO17__:$p_width:
-s:__REFO18__:$i_width:
-s:__REFO19__:$w_width:
-s:__REFO20__:$c_width:
-s:__REFO21__:$win_size:
-s:__REFO22__:$rob_size:
-s:__REFO23__:$int_fu:
-s:__REFO24__:$a_lat:
-s:__REFO25__:$a_rs:
-s:__REFO26__:$im_fu:
-s:__REFO27__:$im_lat:
-s:__REFO28__:$im_pipe:
-s:__REFO29__:$im_rs:
-s:__REFO30__:$id_fu:
-s:__REFO31__:$id_lat:
-s:__REFO32__:$id_pipe:
-s:__REFO33__:$id_rs:
-s:__REFO34__:$fp_fu:
-s:__REFO35__:$fm_fu:
-s:__REFO36__:$l_fu:
-s:__REFO37__:$l_lat:
-s:__REFO38__:$l_pipe:
-s:__REFO39__:$s_fu:
-s:__REFO40__:$s_lat:
-s:__REFO41__:$s_pipe:
-s:__REFO42__:$s_waits:
-s:__REFO43__:$ls_rs:
-s:__REFO44__:$b_fu:
-s:__REFO45__:$b_lat:
-s:__REFO46__:$b_rs:
-s:__REFO47__:$lqsize:
-s:__REFO48__:$sqsize:
-s:__REFO49__:$speculation:
-s:__REFO50__:$wblat:
-s:__REFO51__:$logfile:
+s:__REFO7__:$tomasulo:
+s:__REFO8__:$lregs:
+s:__REFO9__:$pregs:
+s:__REFO10__:$pipestruct:
+s:__REFO11__:$uni_lsu:
+s:__REFO12__:$load_has_pri:
+s:__REFO13__:$io_issue:
+s:__REFO14__:$io_complete:
+s:__REFO15__:$uni_di:
+s:__REFO16__:$f_width:
+s:__REFO17__:$d_width:
+s:__REFO18__:$p_width:
+s:__REFO19__:$i_width:
+s:__REFO20__:$w_width:
+s:__REFO21__:$c_width:
+s:__REFO22__:$win_size:
+s:__REFO23__:$rob_size:
+s:__REFO24__:$int_fu:
+s:__REFO25__:$a_lat:
+s:__REFO26__:$a_rs:
+s:__REFO27__:$im_fu:
+s:__REFO28__:$im_lat:
+s:__REFO29__:$im_pipe:
+s:__REFO30__:$im_rs:
+s:__REFO31__:$id_fu:
+s:__REFO32__:$id_lat:
+s:__REFO33__:$id_pipe:
+s:__REFO34__:$id_rs:
+s:__REFO35__:$fp_fu:
+s:__REFO36__:$fm_fu:
+s:__REFO37__:$l_fu:
+s:__REFO38__:$l_lat:
+s:__REFO39__:$l_pipe:
+s:__REFO40__:$s_fu:
+s:__REFO41__:$s_lat:
+s:__REFO42__:$s_pipe:
+s:__REFO43__:$s_waits:
+s:__REFO44__:$ls_rs:
+s:__REFO45__:$b_fu:
+s:__REFO46__:$b_lat:
+s:__REFO47__:$b_rs:
+s:__REFO48__:$lqsize:
+s:__REFO49__:$sqsize:
+s:__REFO50__:$speculation:
+s:__REFO51__:$wblat:
+s:__REFO52__:$logfile:
 }" > ./$rfn.ini
 
 
