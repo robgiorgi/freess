@@ -2303,6 +2303,7 @@ int COMPLETE_DO(Instruction *ip)
 
     //
     ReleaseFU(ip);
+/* moved to DISPATCH_END
     // In case of Tomasulo: the IWEntry has been already dellaocated: here, just update the rsallocated count
     if (G.tomasulo) {
 //       int opt = ip->optype; if (opt == S_FU) opt = L_FU;
@@ -2311,6 +2312,7 @@ int COMPLETE_DO(Instruction *ip)
         if (opt != S_FU) --(FA[opt].rsallocated);
 printf("RSDEALLOC\n");
     }
+*/
 
     // SET THE COMPLETE-FLAG in the ROB
     RB[ip->robn].cplt = 1;
@@ -2411,6 +2413,19 @@ int DISPATCH_END(Instruction *ipdummy)
         ip = isp[k].ip;
         if (ip != NULL) if (ip->winn >= 0) { ++freed; isp[k].ip  = NULL; isp[k].delay = 0; }
     }
+
+    // Scan all completed ROB entries
+    if (G.tomasulo) {
+        for (int k = 0; k < AA.rob_size; ++k) {
+            if (RB[k].rbbusy && RB[k].cplt) {
+                Instruction *ip = RB[k].ip;
+    // In case of Tomasulo: the IWEntry has been already dellaocated: here, just update the rsallocated count
+                int opt = ip->optype;
+                if (opt != S_FU) --(FA[opt].rsallocated);
+            }
+        }
+    }
+
     if (debug) Display("--DISPATCH_END: freed %d P slots", freed);
 
 
