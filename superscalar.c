@@ -105,6 +105,8 @@ typedef struct FArrayTAG {
    int inilatency;
    int stalls;
    int pipe;
+    int rstotal;     // total no. of per FU res. stations
+    int rsallocated; // allocated res. station per FU
 } FArray;
 
 typedef struct InstructionTAG {
@@ -450,20 +452,21 @@ int Superscalar__Constr(void)
    /* Functional Units */
    FA = (FArray *) Malloc((MAXFT1) * sizeof(FArray));
    if (FA == NULL) ExitProg("Cannot allocate Functional Unit Array");
-   FA[N_FU].tot = 1;		FA[N_FU].inilatency = 2;		FA[N_FU].pipe = 1;
-   FA[A_FU].tot = AA.int_fu;	FA[A_FU].inilatency = 1 + AA.a_lat;	FA[A_FU].pipe = 1;
-   FA[M_FU].tot = AA.im_fu;	FA[M_FU].inilatency = (AA.im_pipe) + AA.im_lat;	FA[M_FU].pipe = AA.im_pipe;
-   FA[D_FU].tot = AA.id_fu;	FA[D_FU].inilatency = (AA.id_pipe) + AA.id_lat;	FA[D_FU].pipe = AA.id_pipe;
-   FA[L_FU].tot = AA.l_fu;	FA[L_FU].inilatency = 0 + AA.l_lat; 	FA[L_FU].pipe = AA.l_pipe;
-   FA[S_FU].tot = AA.s_fu;	FA[S_FU].inilatency = 0 + AA.s_lat;	FA[S_FU].pipe = AA.s_pipe;
-   FA[B_FU].tot = AA.b_fu;	FA[B_FU].inilatency = 1 + AA.b_lat;	FA[B_FU].pipe = 1;
-   FA[F_FU].tot = AA.fp_fu;	FA[F_FU].inilatency = 2;		FA[F_FU].pipe = 1;
-   FA[X_FU].tot = AA.fm_fu;	FA[X_FU].inilatency = 2;		FA[X_FU].pipe = 1;
+   FA[N_FU].tot = 1;	     FA[N_FU].inilatency = 2;            FA[N_FU].pipe = 1;   FA[N_FU].rstotal = 0;
+   FA[A_FU].tot = AA.int_fu; FA[A_FU].inilatency = 1 + AA.a_lat; FA[A_FU].pipe = 1;   FA[A_FU].rstotal = AA.a_rs;
+   FA[M_FU].tot = AA.im_fu;  FA[M_FU].inilatency = (AA.im_pipe) + AA.im_lat; FA[M_FU].pipe = AA.im_pipe;  FA[M_FU].rstotal = AA.im_rs;
+   FA[D_FU].tot = AA.id_fu;  FA[D_FU].inilatency = (AA.id_pipe) + AA.id_lat; FA[D_FU].pipe = AA.id_pipe;  FA[D_FU].rstotal = AA.id_rs;
+   FA[L_FU].tot = AA.l_fu;   FA[L_FU].inilatency = 0 + AA.l_lat; FA[L_FU].pipe = AA.l_pipe; FA[L_FU].rstotal = AA.ls_rs;
+   FA[S_FU].tot = AA.s_fu;   FA[S_FU].inilatency = 0 + AA.s_lat; FA[S_FU].pipe = AA.s_pipe; FA[S_FU].rstotal = 0;
+   FA[B_FU].tot = AA.b_fu;   FA[B_FU].inilatency = 1 + AA.b_lat; FA[B_FU].pipe = 1;   FA[B_FU].rstotal = AA.b_rs;
+   FA[F_FU].tot = AA.fp_fu;  FA[F_FU].inilatency = 2;            FA[F_FU].pipe = 1;   FA[F_FU].rstotal = 0;
+   FA[X_FU].tot = AA.fm_fu;  FA[X_FU].inilatency = 2;            FA[X_FU].pipe = 1;   FA[X_FU].rstotal = 0;
 
    for (k = 0; k < MAXFT1; ++k) {
       FA[k].FU = (FUnit *) Malloc((FA[k].tot + 1) * sizeof(FUnit));
       if (FA[k].FU == NULL) ExitProg("Cannot allocate Functional Units type %d.", k);
       FA[k].stalls = 0;
+      FA[k].rsallocated = 0; // for RS station per FU
       for (j = 0; j <= FA[k].tot; ++j) {
          FA[k].FU[j].busy1 = 0;
          FA[k].FU[j].inilatency = FA[k].inilatency;
@@ -537,6 +540,8 @@ int Superscalar__Constr(void)
    RF[0].pn = 0;
    RF[0].qi = 0;
 
+
+    //
    if (RegFromFile == 0) { //assign some default values
       RF[7].vi = 3;
       RF[1].vi = 0x1000;
@@ -599,6 +604,7 @@ const char* fmt_stall_cause(int val, char *buf, size_t buflen) {
         case -3: snprintf(buf, buflen, "NO_SLOTS"); break;
         case -4: snprintf(buf, buflen, "NO_ROB_SLOTS"); break;
         case -5: snprintf(buf, buflen, "NO_IW_SLOTS"); break;
+        case -6: snprintf(buf, buflen, "NO_RS"); break;
         default: snprintf(buf, buflen, "????"); break;
     }
     return buf;
@@ -1444,10 +1450,17 @@ int ReleaseROBEntry(Instruction **ipp)
  PARAMETERS:
  RETURN    :
  *---------------------------------------------------------------------------*/
-int CheckIWEntry(void)
+int CheckIWEntry(Instruction *ip)
 {
 //   if (IWFull) ++IWStalls;
    if (IWFull) LogStall(&IWStalls, "IW Full");
+
+    // RESERVATION STATIONS PER FU
+    if (G.tomasulo) {
+        int opt = ip->optype; if (opt == S_FU) opt = L_FU;
+        if (FA[opt].rsallocated < FA[opt].rstotal) return (1); else return (0);
+    }
+
    return (!IWFull);
 }
 
@@ -1457,7 +1470,7 @@ int CheckIWEntry(void)
  PARAMETERS:
  RETURN    :
  *---------------------------------------------------------------------------*/
-int GetIWEntry(int *wk)
+int GetIWEntry(Instruction *ip, int *wk)
 {
    int k, found = 0, k1, k2;
 
@@ -1471,17 +1484,19 @@ int GetIWEntry(int *wk)
     found = 0;
     for (k = 0; k < AA.win_size; ++k) {
         k2 = (k1 + 1 + k) % AA.win_size;
-
-          if (IW[k2].busy == 0) {
-             *wk = k2;
-             IW[k2].busy = 1;
-             IW[k2].cj = -1;
-             IW[k2].ck = -1;
-             IW[k2].cl = -1;
-             found =1;
-             ++IWAllocated;
-             if (IWAllocated == AA.win_size) IWFull = 1;
-             break;
+        if (IW[k2].busy == 0) {
+            found = 1;
+            *wk = k2;
+            IW[k2].busy = 1;
+            IW[k2].cj = -1;
+            IW[k2].ck = -1;
+            IW[k2].cl = -1;
+            IW[k2].optype = ip->optype;
+            ++IWAllocated;
+            int opt = ip->optype; if (opt == S_FU) opt = L_FU;
+            ++(FA[opt].rsallocated);
+            if (IWAllocated == AA.win_size) IWFull = 1;
+            break;
         }
     }
 //   if (! found) { IWFull = 1; ++IWStalls; } else { IWFull = 0; }
@@ -1495,7 +1510,7 @@ int GetIWEntry(int *wk)
  PARAMETERS:
  RETURN    :
  *---------------------------------------------------------------------------*/
-void ReleaseIWEntry(int wk)
+void ReleaseIWEntry(Instruction *ip, int wk)
 {
    if (debug) printf("  - Release IW entry: %s/%03d\n", OPNAME[IW[wk].ip->opcode], IW[wk].ip->CIC);
    if (IW[wk].qj == 0) { IW[wk].cj= CK; IW[wk].ip->cj = CK; }
@@ -1505,6 +1520,11 @@ void ReleaseIWEntry(int wk)
    // Save the IW entry in the IW Buffer (IWB) so that I can print it later
    memcpy((void *)(&IWB[wk]), (void *)(&IW[wk]), sizeof(WindowEntry));
    IW[wk].busy = 0;
+
+    // Special case: in Tomasulo, stores and branches are deallocating the RS it ISSUE time
+    if (G.tomasulo && ip->optype == S_FU) --(FA[L_FU].rsallocated);
+    if (G.tomasulo && ip->optype == B_FU) --(FA[B_FU].rsallocated);
+
    --IWAllocated;
    IWFull = 0;
 }
@@ -1868,17 +1888,20 @@ int RENAME_DO(Instruction *ip)
  *---------------------------------------------------------------------------*/
 int DISPATCH_DO(Instruction *ip)
 {
-   int p, q, k, wk=-1, rk=-1, flag = 1, found;
+    int p, q, k, wk=-1, rk=-1, flag = 1, found;
+    Instruction *ipdummy;
 
-   if (debug) { dbgln(""); printf("  in DISPATCH: %4s/%03d \n", OPNAME[ip->opcode], ip->CIC); }
+    if (debug) { dbgln(""); printf("  in DISPATCH: %4s/%03d \n", OPNAME[ip->opcode], ip->CIC); }
 
-   if (! CheckROBEntry()) flag = -4; //NO ROB
-   if (! CheckIWEntry()) flag = -5; //NO IW
+    if (! CheckROBEntry()) flag = -4; //NO ROB
+    if (! CheckIWEntry(ip)) {
+        if (G.tomasulo) flag= -6; else flag = -5; // NO_RS or NO_IW_SLOT
+    } //NO IW
 
-   if (flag == 1) {
+    if (flag == 1) {
 
       GetROBEntry(&rk);
-      GetIWEntry(&wk);
+      GetIWEntry(ip, &wk);
 
       ip->winn = wk;
       ip->waiting = 0;
@@ -1926,17 +1949,17 @@ int DISPATCH_DO(Instruction *ip)
 }
 
 /*---------------------------------------------------------------------------*
- NAME      : CheckIWEntryReady
+ NAME      : IsIWEntryReady
  PURPOSE   : Check if an IW entry is ready
  PARAMETERS:
  RETURN    :
  *---------------------------------------------------------------------------*/
-int CheckIWEntryReady(int k, Instruction *ip)
+int IsIWEntryReady(int k, Instruction *ip)
 {
     int flag = 0;
 
     if (debug) {
-        NEEDLN = 1; printf("    CheckIWEntryReady #%02d: ip 0x%lX %s/%03d qj %d qk %d ql %d wait=%d",\
+        NEEDLN = 1; printf("    IsIWEntryReady #%02d: ip 0x%lX %s/%03d qj %d qk %d ql %d wait=%d",\
             k, ip, OPNAME[ip->opcode], ip->CIC, IW[k].qj, IW[k].qk, IW[k].ql, ip->waiting);
     }
     if (!(ip->waiting)) {
@@ -1987,7 +2010,7 @@ int IssueIWEntry(Instruction **ipp)
             if (IW[k].busy == 1) {
                 ip = IW[k].ip;
                 if (ip != NULL) {
-                    int isready = CheckIWEntryReady(k, ip);
+                    int isready = IsIWEntryReady(k, ip);
                     if (ip->optype == S_FU && isready) ++readystores;
                     if (ip->optype == L_FU && isready) ++readyloads;
                 }
@@ -2006,7 +2029,7 @@ int IssueIWEntry(Instruction **ipp)
                 ip = IW[k].ip;
                 if (ip != NULL) {
                     if ( !(ip->waiting)) {
-                        flag = CheckIWEntryReady(k, ip);
+                        flag = IsIWEntryReady(k, ip);
                         //
 // printf("IIWE::delay=%d\n", IW[k].delay );
                         if (IW[k].delay > 0 ) { flag = -2; }
@@ -2037,7 +2060,7 @@ int IssueIWEntry(Instruction **ipp)
                                 ip->fup1 = GetFU(ip, fn);
                                 if (ip->fup1 == NULL) { flag = -1; continue; }
                                 iwrel = ip->winn;
-                                ReleaseIWEntry(iwrel);
+                                ReleaseIWEntry(ip, iwrel);
                                 break;
                             } else {
                                 flag = -1;
@@ -2280,6 +2303,14 @@ int COMPLETE_DO(Instruction *ip)
 
     //
     ReleaseFU(ip);
+    // In case of Tomasulo: the IWEntry has been already dellaocated: here, just update the rsallocated count
+    if (G.tomasulo) {
+//       int opt = ip->optype; if (opt == S_FU) opt = L_FU;
+//       --(FA[opt].rsallocated);
+        int opt = ip->optype;
+        if (opt != S_FU) --(FA[opt].rsallocated);
+printf("RSDEALLOC\n");
+    }
 
     // SET THE COMPLETE-FLAG in the ROB
     RB[ip->robn].cplt = 1;
@@ -2382,6 +2413,7 @@ int DISPATCH_END(Instruction *ipdummy)
     }
     if (debug) Display("--DISPATCH_END: freed %d P slots", freed);
 
+
     return(0);
 }
 
@@ -2444,7 +2476,7 @@ int ISSUE_END(Instruction *ipdummy)
             Instruction *ip = RB[k].ip;
     
             // Non-Pipelined FU implementation: release the FU right after the execute
-            if (ip->optype == M_FU || ip->optype == D_FU) {
+            if (! G.tomasulo) if (ip->optype == M_FU || ip->optype == D_FU) {
                 ReleaseFU(ip);
             }
         }
@@ -3249,6 +3281,16 @@ void dump_pipeline(int stage, int ic_ini, int ic_end)
    Display("%s", out);
    if (CO != NULL) fprintf(CO, "%s\n", out);
 
+    if (G.tomasulo) {
+       // Display RS MAP
+       strcpy(out, "RS-USAGE:"); len = strlen(out);
+       for (k = 1; k <= MAXFT; ++k) {
+          len += snprintf(out + len, sizeof(out) - len, " %s:%d/%d", FUNAME[k], FA[k].rsallocated, FA[k].rstotal);
+       }
+       Display("%s", out);
+    }
+
+
    //==============================================================
    /* Print header */
    strcpy(out1, ""); for (k = 1; k <= SCREENWIDTH; ++k) { strcat(out1, "="); } Display("%s", out1);
@@ -3324,8 +3366,13 @@ void dump_pipeline(int stage, int ic_ini, int ic_end)
    //==============================================================
    strcpy(out1, ""); for (k = 1; k <= SCREENWIDTH; ++k) { strcat(out1, "="); } Display("%s", out1);
 
-   Display("PC   INSTRUCTION        F  D  P  I  X  W  C Pi,Pj Pk Pl    IW#  OPCD Pi  Pj  Pk I/Pl  Cj Ck Cl  ROB# PC  xi  oPi s x c  +-------------------+");
-
+    // Build CYCLE-COUNT header
+    strcpy(out, "PC   INSTRUCTION        "); len = strlen(out);
+    for (k = 1; k < MAX_STAGE1; ++k) {
+        len += snprintf(out + len, sizeof(out) - len, "%s ", STAGE_ACR[k]);
+    }
+    snprintf(out + len, sizeof(out) - len, "Pi,Pj Pk Pl    IW#  OPCD Pi  Pj  Pk I/Pl  Cj Ck Cl  ROB# PC  xi  oPi s x c  +-------------------+");
+    
    // First pass for LQ
    row = 0;
    sprintf(LSQCOLUMN[row++], "|LQ(%-2d)             |", LQElems);

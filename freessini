@@ -135,15 +135,15 @@ win_size=16
 rob_size=16
 int_fu=4
 a_lat=0
-a_rs=99
+a_rs=100
 im_fu=1
 im_lat=4
 im_pipe=yes
-im_rs=99
+im_rs=100
 id_fu=1
 id_lat=4
 id_pipe=yes
-id_rs=99
+id_rs=100
 fp_fu=4
 fm_fu=1
 l_fu=1
@@ -153,10 +153,10 @@ s_fu=1
 s_lat=1
 s_pipe=yes
 s_waits=no
-ls_rs=99
+ls_rs=100
 b_fu=1
 b_lat=0
-b_rs=99
+b_rs=100
 lqsize=1
 sqsize=1
 speculation=yes
@@ -508,15 +508,15 @@ if [ "$help" = "1" -o "$c" != "0" ]; then
    echo "   <rob_size>				Reorder Buffer Size	16"
    echo "   <integer_alu_units>			Number of Int. FU	4"
    echo "   <integer_alu_latency>		Latency of INT ALU FU	0"
-   echo "   <int._alu_res.stat.>			Reservation St. per FU	99"
+   echo "   <int._alu_res.stat.>			Reservation St. per FU	100"
    echo "   <integer_mult._units>		Number of Mult. FU	1"
    echo "   <integer_mul._latency>		Latency of Mult. FU	4"
    echo "   <integer_mul._pipe>			Pipelinization of Mult.	yes"
-   echo "   <int._mul._res.stat.>		Reservation St. per FU	99"
+   echo "   <int._mul._res.stat.>		Reservation St. per FU	100"
    echo "   <integer_div._units>			Number of Div. FU	1"
    echo "   <integer_div._latency>		Latency of Div. FU	4"
    echo "   <integer_div._pipe>			Pipelinization of Div.	yes"
-   echo "   <int._div._res.stat.>		Reservation St. per FU	99"
+   echo "   <int._div._res.stat.>		Reservation St. per FU	100"
    echo "   <floating_point_units>		Number of FP FU		4"
    echo "   <floating_point_mul>			Number of FP Mult. FU	1"
    echo "   <load_units>				Number of Load FU	1"
@@ -526,10 +526,10 @@ if [ "$help" = "1" -o "$c" != "0" ]; then
    echo "   <store_latency>			Latency of Store FU	1"
    echo "   <store_pipe>				Pipelinization of Store	yes"
    echo "   <store_waits>			Store waits completion	no"
-   echo "   <load/store_res.stat.>		Reservation St. per FU	99"
+   echo "   <load/store_res.stat.>		Reservation St. per FU	100"
    echo "   <branch_units>			Number of Branch FU	1"
    echo "   <branch_latency>			Latency of Branch FU	0"
-   echo "   <branch_res.stat.>			Reservation St. per FU	99"
+   echo "   <branch_res.stat.>			Reservation St. per FU	100"
    echo "   <load_queue_size>			Load Queue Size		1"
    echo "   <store_queue_size>			Store Queue Size	1"
    echo "   <speculation>			Enable Speculation	yes"

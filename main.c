@@ -82,15 +82,15 @@ static char	clv22[MAXLINELEN] = "16";
 static char	clv23[MAXLINELEN] = "16";
 static char	clv24[MAXLINELEN] = "4";
 static char	clv25[MAXLINELEN] = "0";
-static char	clv26[MAXLINELEN] = "99";
+static char	clv26[MAXLINELEN] = "100";
 static char	clv27[MAXLINELEN] = "1";
 static char	clv28[MAXLINELEN] = "4";
 static char	clv29[MAXLINELEN] = "yes";
-static char	clv30[MAXLINELEN] = "99";
+static char	clv30[MAXLINELEN] = "100";
 static char	clv31[MAXLINELEN] = "1";
 static char	clv32[MAXLINELEN] = "4";
 static char	clv33[MAXLINELEN] = "yes";
-static char	clv34[MAXLINELEN] = "99";
+static char	clv34[MAXLINELEN] = "100";
 static char	clv35[MAXLINELEN] = "4";
 static char	clv36[MAXLINELEN] = "1";
 static char	clv37[MAXLINELEN] = "1";
@@ -100,10 +100,10 @@ static char	clv40[MAXLINELEN] = "1";
 static char	clv41[MAXLINELEN] = "1";
 static char	clv42[MAXLINELEN] = "yes";
 static char	clv43[MAXLINELEN] = "no";
-static char	clv44[MAXLINELEN] = "99";
+static char	clv44[MAXLINELEN] = "100";
 static char	clv45[MAXLINELEN] = "1";
 static char	clv46[MAXLINELEN] = "0";
-static char	clv47[MAXLINELEN] = "99";
+static char	clv47[MAXLINELEN] = "100";
 static char	clv48[MAXLINELEN] = "1";
 static char	clv49[MAXLINELEN] = "1";
 static char	clv50[MAXLINELEN] = "yes";
@@ -654,15 +654,15 @@ Options:\n\
   -robs	 <rob_size>		  Reorder Buffer Size (16)\n\
   -afu	 <integer_alu_units>	  Number of Int. FU (4)\n\
   -alat <integer_alu_latency>	  Latency of INT ALU FU (0)\n\
-  -ars <int._alu_res.stat.>	  Reservation St. per FU (99)\n\
+  -ars <int._alu_res.stat.>	  Reservation St. per FU (100)\n\
   -mfu	 <integer_mult._units>	  Number of Mult. FU (1)\n\
   -mlat <integer_mul._latency>	  Latency of Mult. FU (4)\n\
   -mpipe <integer_mul._pipe>	  Pipelinization of Mult. (yes)\n\
-  -mrs <int._mul._res.stat.>	  Reservation St. per FU (99)\n\
+  -mrs <int._mul._res.stat.>	  Reservation St. per FU (100)\n\
   -dfu	 <integer_div._units>	  Number of Div. FU (1)\n\
   -dlat <integer_div._latency>	  Latency of Div. FU (4)\n\
   -dpipe <integer_div._pipe>	  Pipelinization of Div. (yes)\n\
-  -drs <int._div._res.stat.>	  Reservation St. per FU (99)\n\
+  -drs <int._div._res.stat.>	  Reservation St. per FU (100)\n\
   -ffu	 <floating_point_units>	  Number of FP FU (4)\n\
   -xfu	 <floating_point_mul>	  Number of FP Mult. FU (1)\n\
   -lfu	 <load_units>		  Number of Load FU (1)\n\
@@ -672,10 +672,10 @@ Options:\n\
   -slat <store_latency>		  Latency of Store FU (1)\n\
   -spipe <store_pipe>		  Pipelinization of Store (yes)\n\
   -swaits <store_waits>		  Store waits completion (no)\n\
-  -lsrs <load/store_res.stat.>	  Reservation St. per FU (99)\n\
+  -lsrs <load/store_res.stat.>	  Reservation St. per FU (100)\n\
   -bfu	 <branch_units>		  Number of Branch FU (1)\n\
   -blat <branch_latency>	  Latency of Branch FU (0)\n\
-  -brs <branch_res.stat.>	  Reservation St. per FU (99)\n\
+  -brs <branch_res.stat.>	  Reservation St. per FU (100)\n\
   -lqs	 <load_queue_size>	  Load Queue Size (1)\n\
   -sqs	 <store_queue_size>	  Store Queue Size (1)\n\
   -spec <speculation>		  Enable Speculation (yes)\n\

@@ -33,17 +33,17 @@ Entry = ROB Size;		rob_size;	NUMVAL;	1;	MAXROBSIZE;	16;		Reorder Buffer Size;	 4
 #
 Entry = Integer ALU Units;	int_fu;		NUMVAL;	1;	MAXINTFU;	4;		Number of Int. FU;	 4;	afu	
 Entry = Integer ALU Latency;	a_lat;		NUMVAL;	0;	MAXLATENCY;	0;		Latency of INT ALU FU;	 4;	alat
-Entry = Int. ALU Res.Stat.;	a_rs;		NUMVAL;	1;	MAXRSPERFU;	99;		Reservation St. per FU;  4;	ars
+Entry = Int. ALU Res.Stat.;	a_rs;		NUMVAL;	1;	MAXRSPERFU;	100;		Reservation St. per FU;  4;	ars
 #
 Entry = Integer Mult. Units;	im_fu;		NUMVAL;	1;	MAXINTFU;	1;		Number of Mult. FU;	 4;	mfu	
 Entry = Integer Mul. Latency;	im_lat;		NUMVAL;	1;	MAXLATENCY;	4;		Latency of Mult. FU;	 4;	mlat
 Entry = Integer Mul. Pipe;	im_pipe;	YES_NO;	0;	0;		yes;		Pipelinization of Mult.; 4;	mpipe
-Entry = Int. Mul. Res.Stat.;	im_rs;		NUMVAL;	1;	MAXRSPERFU;	99;		Reservation St. per FU;  4;	mrs
+Entry = Int. Mul. Res.Stat.;	im_rs;		NUMVAL;	1;	MAXRSPERFU;	100;		Reservation St. per FU;  4;	mrs
 #
 Entry = Integer Div. Units;	id_fu;		NUMVAL;	1;	MAXINTFU;	1;		Number of Div. FU;	 4;	dfu	
 Entry = Integer Div. Latency;	id_lat;		NUMVAL;	1;	MAXLATENCY;	4;		Latency of Div. FU;	 4;	dlat
 Entry = Integer Div. Pipe;	id_pipe;	YES_NO;	0;	0;		yes;		Pipelinization of Div.;  4;	dpipe
-Entry = Int. Div. Res.Stat.;	id_rs;		NUMVAL;	1;	MAXRSPERFU;	99;		Reservation St. per FU;  4;	drs
+Entry = Int. Div. Res.Stat.;	id_rs;		NUMVAL;	1;	MAXRSPERFU;	100;		Reservation St. per FU;  4;	drs
 #
 Entry = Floating Point Units;	fp_fu;		NUMVAL;	1;	MAXFPFU;	4;		Number of FP FU;	 4;	ffu	
 #
@@ -57,11 +57,11 @@ Entry = Store Units;		s_fu;		NUMVAL;	1;	MAXSFU;		1;		Number of Store FU;	 4;	sfu
 Entry = Store Latency;		s_lat;		NUMVAL;	1;	MAXLATENCY;	1;		Latency of Store FU;	 4;	slat
 Entry = Store Pipe;		s_pipe;		YES_NO;	0;	0;		yes;		Pipelinization of Store; 4;	spipe
 Entry = Store Waits;		s_waits;	YES_NO;	0;	0;		no;		Store waits completion;	 4;	swaits
-Entry = Load/Store Res.Stat.;	ls_rs;		NUMVAL;	1;	MAXRSPERFU;	99;		Reservation St. per FU;	 4;	lsrs
+Entry = Load/Store Res.Stat.;	ls_rs;		NUMVAL;	1;	MAXRSPERFU;	100;		Reservation St. per FU;	 4;	lsrs
 #
 Entry = Branch Units;		b_fu;		NUMVAL;	1;	MAXBFU;		1;		Number of Branch FU;	 4;	bfu	
 Entry = Branch Latency;		b_lat;		NUMVAL;	0;	MAXLATENCY;	0;		Latency of Branch FU;	 4;	blat
-Entry = Branch Res.Stat.;	b_rs;		NUMVAL;	1;	MAXRSPERFU;	99;		Reservation St. per FU;	 4;	brs
+Entry = Branch Res.Stat.;	b_rs;		NUMVAL;	1;	MAXRSPERFU;	100;		Reservation St. per FU;	 4;	brs
 #
 Entry = Load Queue Size;	lqsize;		NUMVAL;	1;	MAXLQSIZE;	1;		Load Queue Size;	 4;	lqs	
 Entry = Store Queue Size;	sqsize;		NUMVAL;	1;	MAXSQSIZE;	1;		Store Queue Size;	 4;	sqs	
