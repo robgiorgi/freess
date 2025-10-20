@@ -19,9 +19,9 @@ MODIFIED BY : XX[XX-XXX-XXXX]
 #define PROG_NAME       "freess"
 #define PROG_PRESEN     \
    "Free Superscalar Simulator - Copyright Roberto Giorgi - giorgi@acm.org\n"\
-   "v1.1 - Released 19-Oct-125 "
+   "v1.1 - Released 20-Oct-125 "
 #define PROG_PRESEN2    \
-   "FREESS v1.1 - Released 19-Oct-125 "
+   "FREESS v1.1 - Released 20-Oct-125 "
 #define PROG_ULINE      \
    "-------------------------------------------------------------------"
 
@@ -81,7 +81,7 @@ static char	clv21[MAXLINELEN] = "16";
 static char	clv22[MAXLINELEN] = "16";
 static char	clv23[MAXLINELEN] = "4";
 static char	clv24[MAXLINELEN] = "0";
-static char	clv25[MAXLINELEN] = "3";
+static char	clv25[MAXLINELEN] = "2";
 static char	clv26[MAXLINELEN] = "1";
 static char	clv27[MAXLINELEN] = "4";
 static char	clv28[MAXLINELEN] = "yes";
@@ -89,7 +89,7 @@ static char	clv29[MAXLINELEN] = "3";
 static char	clv30[MAXLINELEN] = "1";
 static char	clv31[MAXLINELEN] = "4";
 static char	clv32[MAXLINELEN] = "yes";
-static char	clv33[MAXLINELEN] = "3";
+static char	clv33[MAXLINELEN] = "2";
 static char	clv34[MAXLINELEN] = "4";
 static char	clv35[MAXLINELEN] = "1";
 static char	clv36[MAXLINELEN] = "1";
@@ -99,12 +99,12 @@ static char	clv39[MAXLINELEN] = "1";
 static char	clv40[MAXLINELEN] = "1";
 static char	clv41[MAXLINELEN] = "yes";
 static char	clv42[MAXLINELEN] = "no";
-static char	clv43[MAXLINELEN] = "1";
-static char	clv44[MAXLINELEN] = "0";
-static char	clv45[MAXLINELEN] = "3";
-static char	clv46[MAXLINELEN] = "1";
+static char	clv43[MAXLINELEN] = "2";
+static char	clv44[MAXLINELEN] = "1";
+static char	clv45[MAXLINELEN] = "0";
+static char	clv46[MAXLINELEN] = "2";
 static char	clv47[MAXLINELEN] = "1";
-static char	clv48[MAXLINELEN] = "3";
+static char	clv48[MAXLINELEN] = "1";
 static char	clv49[MAXLINELEN] = "yes";
 static char	clv50[MAXLINELEN] = "0";
 static char	clv51[MAXLINELEN] = "def.log";
@@ -146,15 +146,15 @@ static struct option long_options[] =
   {"robs	", required_argument, NULL, 0},
   {"afu	", required_argument, NULL, 0},
   {"alat", required_argument, NULL, 0},
-  {"arsn", required_argument, NULL, 0},
+  {"ars", required_argument, NULL, 0},
   {"mfu	", required_argument, NULL, 0},
   {"mlat", required_argument, NULL, 0},
   {"mpipe", required_argument, NULL, 0},
-  {"mrsn", required_argument, NULL, 0},
+  {"mrs", required_argument, NULL, 0},
   {"dfu	", required_argument, NULL, 0},
   {"dlat", required_argument, NULL, 0},
   {"dpipe", required_argument, NULL, 0},
-  {"drsn", required_argument, NULL, 0},
+  {"drs", required_argument, NULL, 0},
   {"ffu	", required_argument, NULL, 0},
   {"xfu	", required_argument, NULL, 0},
   {"lfu	", required_argument, NULL, 0},
@@ -164,12 +164,12 @@ static struct option long_options[] =
   {"slat", required_argument, NULL, 0},
   {"spipe", required_argument, NULL, 0},
   {"swaits", required_argument, NULL, 0},
+  {"lsrs", required_argument, NULL, 0},
   {"bfu	", required_argument, NULL, 0},
   {"blat", required_argument, NULL, 0},
-  {"brsn", required_argument, NULL, 0},
+  {"brs", required_argument, NULL, 0},
   {"lqs	", required_argument, NULL, 0},
   {"sqs	", required_argument, NULL, 0},
-  {"lsrsn", required_argument, NULL, 0},
   {"spec", required_argument, NULL, 0},
   {"wblat	", required_argument, NULL, 0},
   {"logfile", required_argument, NULL, 0},
@@ -214,15 +214,15 @@ static IniSection ArchitectureSec[] =
    "ROB Size",				NUMVAL,	1,	MAXROBSIZE,	&AA.rob_size,
    "Integer ALU Units",			NUMVAL,	1,	MAXINTFU,	&AA.int_fu,
    "Integer ALU Latency",		NUMVAL,	0,	MAXLATENCY,	&AA.a_lat,
-   "Integer ALU RSs",			NUMVAL,	0,	MAXRSPERFU,	&AA.a_rsn,
+   "Int. ALU Res.Stat.",		NUMVAL,	1,	MAXRSPERFU,	&AA.a_rs,
    "Integer Mult. Units",		NUMVAL,	1,	MAXINTFU,	&AA.im_fu,
    "Integer Mul. Latency",		NUMVAL,	1,	MAXLATENCY,	&AA.im_lat,
    "Integer Mul. Pipe",			YES_NO,	0,	0,	&AA.im_pipe,
-   "Integer Mul. RSs",			NUMVAL,	0,	MAXRSPERFU,	&AA.im_rsn,
+   "Int. Mul. Res.Stat.",		NUMVAL,	1,	MAXRSPERFU,	&AA.im_rs,
    "Integer Div. Units",		NUMVAL,	1,	MAXINTFU,	&AA.id_fu,
    "Integer Div. Latency",		NUMVAL,	1,	MAXLATENCY,	&AA.id_lat,
    "Integer Div. Pipe",			YES_NO,	0,	0,	&AA.id_pipe,
-   "Integer Div. RSs",			NUMVAL,	0,	MAXRSPERFU,	&AA.id_rsn,
+   "Int. Div. Res.Stat.",		NUMVAL,	1,	MAXRSPERFU,	&AA.id_rs,
    "Floating Point Units",		NUMVAL,	1,	MAXFPFU,	&AA.fp_fu,
    "Floating Point Mul",		NUMVAL,	1,	MAXFPFU,	&AA.fm_fu,
    "Load Units",			NUMVAL,	1,	MAXLFU,	&AA.l_fu,
@@ -232,12 +232,12 @@ static IniSection ArchitectureSec[] =
    "Store Latency",			NUMVAL,	1,	MAXLATENCY,	&AA.s_lat,
    "Store Pipe",			YES_NO,	0,	0,	&AA.s_pipe,
    "Store Waits",			YES_NO,	0,	0,	&AA.s_waits,
+   "Load/Store Res.Stat.",		NUMVAL,	1,	MAXRSPERFU,	&AA.ls_rs,
    "Branch Units",			NUMVAL,	1,	MAXBFU,	&AA.b_fu,
    "Branch Latency",			NUMVAL,	0,	MAXLATENCY,	&AA.b_lat,
-   "Branch RSs",			NUMVAL,	0,	MAXRSPERFU,	&AA.b_rsn,
+   "Branch Res.Stat.",			NUMVAL,	1,	MAXRSPERFU,	&AA.b_rs,
    "Load Queue Size",			NUMVAL,	1,	MAXLQSIZE,	&AA.lqsize,
    "Store Queue Size",			NUMVAL,	1,	MAXSQSIZE,	&AA.sqsize,
-   "UniLSU RSs",			NUMVAL,	0,	MAXRSPERFU,	&AA.ls_rsn,
    "Speculation",			YES_NO,	0,	0,	&AA.speculation,
    "Write Back Latency",		NUMVAL,	1,	0,	&AA.wblat,
    "",					ENDING,	0,	0,	NULL
@@ -357,7 +357,7 @@ int MainConstr(int argc, char **argv)
             if (optarg) { strcpy(clv23, optarg); ok = 1; }
          if (strcmp("alat", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv24, optarg); ok = 1; }
-         if (strcmp("arsn", long_options[option_index].name) == 0)
+         if (strcmp("ars", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv25, optarg); ok = 1; }
          if (strcmp("mfu	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv26, optarg); ok = 1; }
@@ -365,7 +365,7 @@ int MainConstr(int argc, char **argv)
             if (optarg) { strcpy(clv27, optarg); ok = 1; }
          if (strcmp("mpipe", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv28, optarg); ok = 1; }
-         if (strcmp("mrsn", long_options[option_index].name) == 0)
+         if (strcmp("mrs", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv29, optarg); ok = 1; }
          if (strcmp("dfu	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv30, optarg); ok = 1; }
@@ -373,7 +373,7 @@ int MainConstr(int argc, char **argv)
             if (optarg) { strcpy(clv31, optarg); ok = 1; }
          if (strcmp("dpipe", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv32, optarg); ok = 1; }
-         if (strcmp("drsn", long_options[option_index].name) == 0)
+         if (strcmp("drs", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv33, optarg); ok = 1; }
          if (strcmp("ffu	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv34, optarg); ok = 1; }
@@ -393,17 +393,17 @@ int MainConstr(int argc, char **argv)
             if (optarg) { strcpy(clv41, optarg); ok = 1; }
          if (strcmp("swaits", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv42, optarg); ok = 1; }
-         if (strcmp("bfu	", long_options[option_index].name) == 0)
+         if (strcmp("lsrs", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv43, optarg); ok = 1; }
-         if (strcmp("blat", long_options[option_index].name) == 0)
+         if (strcmp("bfu	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv44, optarg); ok = 1; }
-         if (strcmp("brsn", long_options[option_index].name) == 0)
+         if (strcmp("blat", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv45, optarg); ok = 1; }
-         if (strcmp("lqs	", long_options[option_index].name) == 0)
+         if (strcmp("brs", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv46, optarg); ok = 1; }
-         if (strcmp("sqs	", long_options[option_index].name) == 0)
+         if (strcmp("lqs	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv47, optarg); ok = 1; }
-         if (strcmp("lsrsn", long_options[option_index].name) == 0)
+         if (strcmp("sqs	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv48, optarg); ok = 1; }
          if (strcmp("spec", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv49, optarg); ok = 1; }
@@ -465,15 +465,15 @@ int MainConstr(int argc, char **argv)
    strcat(iniv, "rob_size="); strcat(iniv, clv22); strcat(iniv, ";");
    strcat(iniv, "int_fu="); strcat(iniv, clv23); strcat(iniv, ";");
    strcat(iniv, "a_lat="); strcat(iniv, clv24); strcat(iniv, ";");
-   strcat(iniv, "a_rsn="); strcat(iniv, clv25); strcat(iniv, ";");
+   strcat(iniv, "a_rs="); strcat(iniv, clv25); strcat(iniv, ";");
    strcat(iniv, "im_fu="); strcat(iniv, clv26); strcat(iniv, ";");
    strcat(iniv, "im_lat="); strcat(iniv, clv27); strcat(iniv, ";");
    strcat(iniv, "im_pipe="); strcat(iniv, clv28); strcat(iniv, ";");
-   strcat(iniv, "im_rsn="); strcat(iniv, clv29); strcat(iniv, ";");
+   strcat(iniv, "im_rs="); strcat(iniv, clv29); strcat(iniv, ";");
    strcat(iniv, "id_fu="); strcat(iniv, clv30); strcat(iniv, ";");
    strcat(iniv, "id_lat="); strcat(iniv, clv31); strcat(iniv, ";");
    strcat(iniv, "id_pipe="); strcat(iniv, clv32); strcat(iniv, ";");
-   strcat(iniv, "id_rsn="); strcat(iniv, clv33); strcat(iniv, ";");
+   strcat(iniv, "id_rs="); strcat(iniv, clv33); strcat(iniv, ";");
    strcat(iniv, "fp_fu="); strcat(iniv, clv34); strcat(iniv, ";");
    strcat(iniv, "fm_fu="); strcat(iniv, clv35); strcat(iniv, ";");
    strcat(iniv, "l_fu="); strcat(iniv, clv36); strcat(iniv, ";");
@@ -483,12 +483,12 @@ int MainConstr(int argc, char **argv)
    strcat(iniv, "s_lat="); strcat(iniv, clv40); strcat(iniv, ";");
    strcat(iniv, "s_pipe="); strcat(iniv, clv41); strcat(iniv, ";");
    strcat(iniv, "s_waits="); strcat(iniv, clv42); strcat(iniv, ";");
-   strcat(iniv, "b_fu="); strcat(iniv, clv43); strcat(iniv, ";");
-   strcat(iniv, "b_lat="); strcat(iniv, clv44); strcat(iniv, ";");
-   strcat(iniv, "b_rsn="); strcat(iniv, clv45); strcat(iniv, ";");
-   strcat(iniv, "lqsize="); strcat(iniv, clv46); strcat(iniv, ";");
-   strcat(iniv, "sqsize="); strcat(iniv, clv47); strcat(iniv, ";");
-   strcat(iniv, "ls_rsn="); strcat(iniv, clv48); strcat(iniv, ";");
+   strcat(iniv, "ls_rs="); strcat(iniv, clv43); strcat(iniv, ";");
+   strcat(iniv, "b_fu="); strcat(iniv, clv44); strcat(iniv, ";");
+   strcat(iniv, "b_lat="); strcat(iniv, clv45); strcat(iniv, ";");
+   strcat(iniv, "b_rs="); strcat(iniv, clv46); strcat(iniv, ";");
+   strcat(iniv, "lqsize="); strcat(iniv, clv47); strcat(iniv, ";");
+   strcat(iniv, "sqsize="); strcat(iniv, clv48); strcat(iniv, ";");
    strcat(iniv, "speculation="); strcat(iniv, clv49); strcat(iniv, ";");
    strcat(iniv, "wblat="); strcat(iniv, clv50); strcat(iniv, ";");
    strcat(iniv, "logfile="); strcat(iniv, clv51); strcat(iniv, ";");
@@ -532,15 +532,15 @@ int MainConstr(int argc, char **argv)
    IsNumVal(clv22, &(AA.rob_size));;
    IsNumVal(clv23, &(AA.int_fu));;
    IsNumVal(clv24, &(AA.a_lat));;
-   IsNumVal(clv25, &(AA.a_rsn));;
+   IsNumVal(clv25, &(AA.a_rs));;
    IsNumVal(clv26, &(AA.im_fu));;
    IsNumVal(clv27, &(AA.im_lat));;
    AA.im_pipe = (0 == strcmp(clv28, "yes") ? 1 : 0);
-   IsNumVal(clv29, &(AA.im_rsn));;
+   IsNumVal(clv29, &(AA.im_rs));;
    IsNumVal(clv30, &(AA.id_fu));;
    IsNumVal(clv31, &(AA.id_lat));;
    AA.id_pipe = (0 == strcmp(clv32, "yes") ? 1 : 0);
-   IsNumVal(clv33, &(AA.id_rsn));;
+   IsNumVal(clv33, &(AA.id_rs));;
    IsNumVal(clv34, &(AA.fp_fu));;
    IsNumVal(clv35, &(AA.fm_fu));;
    IsNumVal(clv36, &(AA.l_fu));;
@@ -550,12 +550,12 @@ int MainConstr(int argc, char **argv)
    IsNumVal(clv40, &(AA.s_lat));;
    AA.s_pipe = (0 == strcmp(clv41, "yes") ? 1 : 0);
    AA.s_waits = (0 == strcmp(clv42, "yes") ? 1 : 0);
-   IsNumVal(clv43, &(AA.b_fu));;
-   IsNumVal(clv44, &(AA.b_lat));;
-   IsNumVal(clv45, &(AA.b_rsn));;
-   IsNumVal(clv46, &(AA.lqsize));;
-   IsNumVal(clv47, &(AA.sqsize));;
-   IsNumVal(clv48, &(AA.ls_rsn));;
+   IsNumVal(clv43, &(AA.ls_rs));;
+   IsNumVal(clv44, &(AA.b_fu));;
+   IsNumVal(clv45, &(AA.b_lat));;
+   IsNumVal(clv46, &(AA.b_rs));;
+   IsNumVal(clv47, &(AA.lqsize));;
+   IsNumVal(clv48, &(AA.sqsize));;
    AA.speculation = (0 == strcmp(clv49, "yes") ? 1 : 0);
    IsNumVal(clv50, &(AA.wblat));;
    strcpy(Pro.logfile, clv51);
@@ -646,15 +646,15 @@ Options:\n\
   -robs	 <rob_size>		  Reorder Buffer Size (16)\n\
   -afu	 <integer_alu_units>	  Number of Int. FU (4)\n\
   -alat <integer_alu_latency>	  Latency of INT ALU FU (0)\n\
-  -arsn <integer_alu_rss>	  Reservation St. per FU (3)\n\
+  -ars <int._alu_res.stat.>	  Reservation St. per FU (2)\n\
   -mfu	 <integer_mult._units>	  Number of Mult. FU (1)\n\
   -mlat <integer_mul._latency>	  Latency of Mult. FU (4)\n\
   -mpipe <integer_mul._pipe>	  Pipelinization of Mult. (yes)\n\
-  -mrsn <integer_mul._rss>	  Reservation St. per FU (3)\n\
+  -mrs <int._mul._res.stat.>	  Reservation St. per FU (3)\n\
   -dfu	 <integer_div._units>	  Number of Div. FU (1)\n\
   -dlat <integer_div._latency>	  Latency of Div. FU (4)\n\
   -dpipe <integer_div._pipe>	  Pipelinization of Div. (yes)\n\
-  -drsn <integer_div._rss>	  Reservation St. per FU (3)\n\
+  -drs <int._div._res.stat.>	  Reservation St. per FU (2)\n\
   -ffu	 <floating_point_units>	  Number of FP FU (4)\n\
   -xfu	 <floating_point_mul>	  Number of FP Mult. FU (1)\n\
   -lfu	 <load_units>		  Number of Load FU (1)\n\
@@ -664,12 +664,12 @@ Options:\n\
   -slat <store_latency>		  Latency of Store FU (1)\n\
   -spipe <store_pipe>		  Pipelinization of Store (yes)\n\
   -swaits <store_waits>		  Store waits completion (no)\n\
+  -lsrs <load/store_res.stat.>	  Reservation St. per FU (2)\n\
   -bfu	 <branch_units>		  Number of Branch FU (1)\n\
   -blat <branch_latency>	  Latency of Branch FU (0)\n\
-  -brsn <branch_rss>		  Reservation St. per FU (3)\n\
+  -brs <branch_res.stat.>	  Reservation St. per FU (2)\n\
   -lqs	 <load_queue_size>	  Load Queue Size (1)\n\
   -sqs	 <store_queue_size>	  Store Queue Size (1)\n\
-  -lsrsn <unilsu_rss>		  Reservation St. per FU (3)\n\
   -spec <speculation>		  Enable Speculation (yes)\n\
   -wblat	 <write_back_latency>	  Write Back Latency (0)\n\
   -logfile <log_file_name>	  Log File (def.log)\n\
