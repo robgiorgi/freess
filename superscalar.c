@@ -301,6 +301,7 @@ char *ORDINAL[10] = { "first", "second", "third", "fourth", "fifth", "sixth", "s
 
 char *STAGE_ACR[MAX_STAGE1]     = { "-","F","D","P","I","X","W","C"};
 int STAGE_DELAY[MAX_STAGE1]     = {  0,  1,  1,  1,  0,  1,  1,  1 };
+//int STAGE_INORDER[MAX_STAGE1]   = {  1,  1,  1,  1,  0,  0,  0,  1 };
 int STAGE_INORDER[MAX_STAGE1]   = {  1,  1,  1,  1,  0,  0,  0,  1 };
 //int ST_BLOCK_IGNORE[MAX_STAGE1]  = {  0,  0,  0,  0,  0,  0,  0,  0 };
 int ST_BLOCK_IGNORE[MAX_STAGE1] = {  0,  0,  0,  0,  0,  0,  0,  1 };
@@ -513,7 +514,7 @@ int Superscalar__Constr(void)
           STAGE_BUF[st][k].inidelay = 1;
 //          STAGE_BUF[st][k].skiponce = 0;
       }
-      Display("%8s STAGE = %d entries.", STAGE_NAME[st], STAGE_SIZ[st]);
+      if (!G.silent) Display("%8s STAGE = %d entries.", STAGE_NAME[st], STAGE_SIZ[st]);
    }
 
    DYNSTREAM = Queue__Constr();
@@ -727,6 +728,10 @@ int Superscalar__Start(int argc, char **argv)
    IC = 0;
    PIC = 0;
    IsEnd = 0;
+
+    // If silent, set also to NON-interactive
+    if (G.silent) G.interactive = 0;
+
 //   read_program(G.progname);
 //   dump_instruction_program();
    if (!G.silent) Display("----------------------------------------------------------");
@@ -737,7 +742,7 @@ int Superscalar__Start(int argc, char **argv)
    if (LOGSTALL == NULL) ExitProg("Cannot write file '%s'", fnlog);
 
    // Print work hypothesis 
-   print_hypothesis();
+   if (!G.silent) print_hypothesis();
 
    while (!IsEnd) {
       if (verbose) Display("====== STARTING CYCLE %d ===================================", CK);
@@ -753,10 +758,11 @@ int Superscalar__Start(int argc, char **argv)
          }
       }
 
-      if (!G.silent) {
+      if (!G.silent || IsEnd) { // in case we are at the last cycle , print anyway the output
          dump_pipeline(ALLSTAGES, 0, IC-1);
          Display("------------------------------------------------- Press ENTER to continue (PC=%d,IC=%d,CK=%d,CTOT=%d,IPC=%3.2f)...", PC, IC, CK, CK + 1 - G.start_ck, (float)IC/(CK + 1 - G.start_ck + 0.000000001));
-         if (strlen(LOGBUF) > 0) Display(LOGBUF); *LOGBUF='\0';
+         // print LOGBUF if there is something in it, but not if it is a residue (!IsEnd and !G.silent)
+         if ((!G.silent && !IsEnd) && strlen(LOGBUF) > 0) Display(LOGBUF); *LOGBUF='\0';
       }
       if (G.interactive && ! G.silent) {
 #ifndef __EMSCRIPTEN__
@@ -842,6 +848,10 @@ int WriteCDB(indx r, valu v) {
 }
 
 void ExecA(int fu, indx r) {
+
+}
+
+void ExecB(int fu, indx r) {
 
 }
 
@@ -979,6 +989,7 @@ int Issue_STAGE(void) {
             case D_FU: if (RS[r].QJ == 0 && RS[r].QK == 0) { RS[r].BUSY = 0; ExecM(fu, r); } break;
             case L_FU: if (RS[r].QJ == 0 && RS[r].QK == 0) { RS[r].BUSY = 0; ExecL(fu, r); } break;
             case A_FU: if (RS[r].QJ == 0 && RS[r].QK == 0) { RS[r].BUSY = 0; ExecA(fu, r); } break;
+            case B_FU: if (RS[r].QJ == 0 && RS[r].QK == 0) { RS[r].BUSY = 0; ExecB(fu, r); } break;
             case S_FU: if (RS[r].QJ == 0 && RS[r].QK == 0) { RS[r].BUSY = 0; ExecS(fu, r); } break;
          }
       }
@@ -1355,7 +1366,7 @@ int ReleaseFU(Instruction *ip)
         default:
            if (fu->busy1 == 1) {
               if (verbose) { nldone = 0; if (verbose) printf(", %d:%4s/%03d", j, OPNAME[fu->ip->opcode], fu->ip->CIC); }
-printf("BOOM t=%d j=%d\n", t, j);
+if (debug > 1) printf(" --> RELEASING FA[t]=%s.%d\n", FUNAME[t], j);
               fu->busy1 = 0;
               --(FA[t].busy2);
            }
@@ -1696,18 +1707,26 @@ Instruction *InstructionMemoryRead()
  *---------------------------------------------------------------------------*/
 void Branch_Prediction(u32 mypc, Instruction *ip)
 {
-   /* Always taken for now */
-   ip->NPC = mypc + ip->rs3;
-   ip->bdir = 1;
-
+    if (AA.speculation) {
+        /* Always taken for now */
+        ip->NPC = mypc + ip->rs3;
+        ip->bdir = 1;
+    } else {
+/* IMPLEMENTING NO-SPECULATION BY STOPPING FETCH AFTER A BRANCH INSTRUCTION:
+        StreamEnd = 2; // momentarily suspend stream fetch for next instr.
+*/
+        // Assume we are branching anyway
+        ip->NPC = mypc + ip->rs3;
+        ip->bdir = 1;
+    }
 
 //PATCH
-   ++BRANCH_COUNT;
-   if (BRANCH_COUNT == G.iterations) {
-      StreamEnd = 1;
+    ++BRANCH_COUNT;
+    if (BRANCH_COUNT == G.iterations) {
+        StreamEnd = 1;
         int n = Queue__Count(DYNSTREAM);
         LastInst = (Instruction *) Queue__Read(n - 1, DYNSTREAM);
-   }
+    }
 }
 
 /*---------------------------------------------------------------------------*
@@ -1894,6 +1913,10 @@ int DISPATCH_DO(Instruction *ip)
 
     if (debug) { dbgln(""); printf("  in DISPATCH: %4s/%03d \n", OPNAME[ip->opcode], ip->CIC); }
 
+/* IMPLEMENTING NO-SPECULATION BY STOPPING FETCH AFTER A BRANCH INSTRUCTION (BUT IN DISPATCH):
+*/
+    if (! (AA.speculation) && ip->optype == B_FU && StreamEnd != 1) StreamEnd = 2; // momentarily suspend stream fetch for next instr.
+
     if (! CheckROBEntry()) flag = -4; //NO ROB
     if (! CheckIWEntry(ip)) {
         if (G.tomasulo) flag= -6; else flag = -5; // NO_RS or NO_IW_SLOT
@@ -1978,7 +2001,7 @@ int IsIWEntryReady(int k, Instruction *ip)
               if ((IW[k].qj == 0 && IW[k].qk == 0) || ip->bdir == 1) flag = 1;
               break;
            case BNE: case BEQ:
-              if (AA.speculation) { flag = 1; break; }
+//              if (AA.speculation) { flag = 1; break; }
               if ((IW[k].qj == 0 && IW[k].qk == 0)) flag = 1;
               break;
            default:
@@ -2147,6 +2170,7 @@ int EXECUTE_DO(Instruction *ip)
    switch (ip->opcode) {
       case BNE: case BEQ:
          ip->fup = ip->fup1; flag = 1;
+         if (! AA.speculation && StreamEnd == 2) StreamEnd = 0;
          break;
       case MUL:
          RM[ip->pd].vi = RM[ip->ps1].vi * RM[ip->ps2].vi;
@@ -2505,6 +2529,27 @@ int ISSUE_END(Instruction *ipdummy)
 }
 
 /*---------------------------------------------------------------------------*
+ NAME      : dump_stage_buffer
+ PURPOSE   : print stage buffer content for debugging purpose
+ PARAMETERS:
+ RETURN    :
+ *---------------------------------------------------------------------------*/
+void dump_stage_buffer(int st)
+{
+    char aux[20];
+
+    printf("\nMINIMAP START %s (STAGE_LAST[st]=%d) =============================\n", STAGE_NAME[st], STAGE_LAST[st]);
+    InstructionSlot *sp = STAGE_BUF[st];
+    for (int k = 0; k < STAGE_SIZ[st]; ++k) {
+        Instruction *sip = sp[k].ip;
+        int sid = sp[k].delay;
+        strcpy(aux, "NULL");
+        if (sip) sprintf(aux, "%s/%03d", OPNAME[sip->opcode], sip->CIC);
+        printf("%s[%d].ip.d=%s.%d ", STAGE_ACR[st], k, aux, sid);
+    } printf("\nMINIMAP END %s =================================\n", STAGE_NAME[st]);
+}
+
+/*---------------------------------------------------------------------------*
  NAME      : EXECUTE_END
  PURPOSE   : Final operations for the Execute stage
  PARAMETERS:
@@ -2532,16 +2577,16 @@ int EXECUTE_END(Instruction *ipdummy)
 
 
     // Scan for Branch instructions
-            if (ip->optype == B_FU) {
-                if(debug) { dbgln(""); printf("BRANCH\n"); }
-                RB[ip->robn].cplt = 1;
-                ip->t[COMPLETE] = CK;      // stage timestamp
-                ip->fup   = NULL;    // consumed
-                RemoveFromStageBuffer(ip, EXECUTE);
+    if (ip->optype == B_FU) {
+        if(debug) { dbgln(""); printf("BRANCH\n"); }
+        RB[ip->robn].cplt = 1;
+        ip->t[COMPLETE] = CK;      // stage timestamp
+        ip->fup   = NULL;    // consumed
+        RemoveFromStageBuffer(ip, EXECUTE);
 //                ok = InsertIntoStageBuffer(SQ[p], COMPLETE);
 //                if (ok != 1) ExitProg("Cannot propagate executed-branch info");
 //                COMPLETE_DO(ip);
-            }
+    }
 
          if (!STOREWAITS) if (ip->store) RemoveFromStageBuffer(ip, EXECUTE);
          if (debug) if (!nldone) printf("\n");
@@ -2556,6 +2601,10 @@ int EXECUTE_END(Instruction *ipdummy)
     dbgln("");
 */
 
+if (debug == 3) dump_stage_buffer(DISPATCH);
+if (debug == 3) dump_stage_buffer(ISSUE);
+if (debug == 3) dump_stage_buffer(EXECUTE);
+if (debug == 3) dump_stage_buffer(COMPLETE);
 
    return(-1);
 }
@@ -2571,7 +2620,7 @@ int COMPLETE_END(Instruction *ipdummy)
     int flag = 0;
 
     // RESET COMPLETEDINSTR
-    COMPLETEDINSTR = -1;
+    COMPLETEDINSTR = 0;
 
 // /* MOVED TO EXECUTE_END
     if (debug) { dbgln(""); printf("--COMPLETE_END:"); }
@@ -2593,6 +2642,26 @@ int COMMIT_END(Instruction *ipdummy)
 {
    //TODO; for the committed instructions, write the results of the Pregs into the Lregs
    return(0);
+}
+
+/*---------------------------------------------------------------------------*
+ NAME      : stage_insert
+ PURPOSE   : move a slot from source stage-buffer to destination stage-buffer
+ PARAMETERS:
+ RETURN    :
+ *---------------------------------------------------------------------------*/
+int stage_insert(int st, InstructionSlot *src, InstructionSlot *dst)
+{
+    int k, k1 = STAGE_SIZ[st], found1 = 0;
+
+    for (k = STAGE_SIZ[st] - 1; k >= 0; --k) {
+        Instruction *ip_src = src[k].ip;
+        if (ip_src == NULL) {
+            k1 = k;
+        } else { found1 = (k1 %  STAGE_SIZ[st]) + 1; break; }
+    }
+
+    return (found1);
 }
 
 /*---------------------------------------------------------------------------
@@ -2641,6 +2710,7 @@ int Stage(int st)
 
         // no more instructions to fetch
         if (st == FETCH && StreamEnd) continue; // go check another slot
+        if (st < DISPATCH && StreamEnd == 2) continue; // go check another slot (temp stall for branch instr and no-speculation)
 
         // Pretty debug (optional)
         if (debug) {
@@ -2714,7 +2784,7 @@ int Stage(int st)
             if (ip0 != NULL || ST_IGNORE_STBUF[st] == 1) action_rc = (STAGE_DO[st])(ip0);
             //----------------------------------------------------------------------------
 
-//printf("StreamEnd=%d\n", StreamEnd); fflush(stdout);
+if (debug > 1) printf("StreamEnd=%d\n", StreamEnd); fflush(stdout);
 
             // Special immediate handling for FETCH
             if (st == FETCH) {
@@ -2728,7 +2798,7 @@ int Stage(int st)
                 if (StreamEnd) stage_end = 1;   // honor end-of-stream after we placed the last inst
             }
 
-printf("action_rc=%d\n", action_rc); fflush(stdout);
+if (debug > 1) printf("action_rc=%d\n", action_rc); fflush(stdout);
 
             // If the action says "not ready yet" (legacy: rc==0 and !ignore_flag), stop here
             int branch_taken = 0;
@@ -2736,7 +2806,7 @@ printf("action_rc=%d\n", action_rc); fflush(stdout);
 
             //
             if (action_rc < 1 && !ST_BLOCK_IGNORE[st]) {
-printf("URKA\n");
+if (debug > 1) printf("STALL!\n");
                 // For in-order stage we must not skip later older items
                 if (STAGE_INORDER[st]) stop_after = 1;
                 if (st != FETCH) break;  // break the destination search loop
@@ -2763,7 +2833,7 @@ printf("URKA\n");
 
                 // Legacy INIB handling at ISSUE for load/store with fup1
 //                INIB = 0;
-printf("fup1=%08X st=%s STAGE_DELAY[st]=%d\n", ip0->fup1, STAGE_NAME[st], STAGE_DELAY[st]);
+if (debug > 1) printf("fup1=%08X st=%s STAGE_DELAY[st]=%d\n", ip0->fup1, STAGE_NAME[st], STAGE_DELAY[st]);
 //                if (ip0->fup1 != NULL && st == ISSUE && STAGE_DELAY[st] == 1 &&
                 if (ip0->fup1 != NULL && st == ISSUE && 
                     (ip0->optype == L_FU || ip0->optype == S_FU)) {
@@ -2780,7 +2850,7 @@ printf("fup1=%08X st=%s STAGE_DELAY[st]=%d\n", ip0->fup1, STAGE_NAME[st], STAGE_
             // bookkeep load and stores
             if (st == ISSUE && ip0->optype == L_FU) { ++ISSUEDLOADS;  }
             if (st == ISSUE && ip0->optype == S_FU) { ++ISSUEDSTORES; }
-            if (st ==COMPLETE) { ++COMPLETEDINSTR; }
+            if (st == COMPLETE) { ++COMPLETEDINSTR; }
 
 
             //-------------------------------------------------------------------------------------
@@ -2797,6 +2867,7 @@ printf("fup1=%08X st=%s STAGE_DELAY[st]=%d\n", ip0->fup1, STAGE_NAME[st], STAGE_
             if (st != COMMIT) break; // destination loop
         } // (for k) end for each destination slot
         if (debug) if (foundtransfers) dbgln(""); // dbgln("ciao");
+if (debug > 1) printf(".....END-DST-LOOP: stage_end=%d stop_after=%d st=%s\n", stage_end, stop_after,  STAGE_ACR[st]);
 
         // If we couldn’t move but had a ready instruction, log the stall
         if (!stage_end && !found_transfer && ip_src != NULL) {
@@ -2816,11 +2887,10 @@ printf("fup1=%08X st=%s STAGE_DELAY[st]=%d\n", ip0->fup1, STAGE_NAME[st], STAGE_
 
         // If in-order and we just hit a blocking situation, stop scanning more sources
 //        if (stop_after || stage_end) {
-printf("son qua1! stage_end=%d stop_after=%d st=%s\n", stage_end, stop_after,  STAGE_ACR[st]);
         if (stop_after || stage_end || (st==COMMIT)) {
             break;
         }
-printf("son qua2! stage_end=%d stop_after=%d st=%s\n", stage_end, stop_after,  STAGE_ACR[st]);
+if (debug > 1) printf(".....AFTER-DST-LOOP: stage_end=%d stop_after=%d st=%s\n", stage_end, stop_after,  STAGE_ACR[st]);
 
         // Compact after a successful DISPATCH transfer (legacy place)
         if (found_transfer && st == DISPATCH) {
@@ -2829,7 +2899,7 @@ printf("son qua2! stage_end=%d stop_after=%d st=%s\n", stage_end, stop_after,  S
         }
     } // (for j) end for each source slot
     if (debug) dbgln("");
-printf("son qua3! stage_end=%d stop_after=%d st=%s\n", stage_end, stop_after,  STAGE_ACR[st]);
+if (debug > 1) printf(".....AFTER-SRC-LOOP: stage_end=%d stop_after=%d st=%s\n", stage_end, stop_after,  STAGE_ACR[st]);
 
     // Per-stage end callback (unchanged)
     if (!stage_end) { (STAGE_END[st])(NULL); }
@@ -2972,7 +3042,7 @@ void read_program(char *pn)
    u32 val;
    
   
-   Display("* Input program: '%s'  ", pn);
+   if (!G.silent) Display("* Input program: '%s'  ", pn);
    SSS_fp = FOpen(pn, "r", &SSSClose);
    if (SSS_fp != NULL) {
       ret = fscanf(SSS_fp, "%126[^\n]\n", buf); buf[127] = '\0';
@@ -2998,7 +3068,7 @@ void read_program(char *pn)
             RegFromFile = 1; //some regiser is defined in the file
             sscanf(buf+2, "%d %x [^\n]\n", &regn, &val); 
             if (regn >=1 && regn <= AA.lregs) {
-               Display("  x%d <-- %08X", regn, val);
+               if (! G.silent) Display("  x%d <-- %08X", regn, val);
                RF[regn].vi = (int)val;
             }
 	 } else {
@@ -3072,7 +3142,7 @@ void read_program(char *pn)
              sprintf(buf1, "%03d) %2d %2d %2d %2d", icount, iopcode, ird, irs1, irs2);
              sprintf(buf2, "%-4s", OPNAME[iopcode]);
              print_lregs_args(ip, buf3, "");
-             Display("  %s --> %s %s", buf1, buf2, buf3);
+             if (!G.silent) Display("  %s --> %s %s", buf1, buf2, buf3);
              Queue__Insert((char *)ip, PI);
              ++icount;
          }
@@ -3081,8 +3151,8 @@ void read_program(char *pn)
       Display("Cannot open '%s' for reading.", pn);
    }
    PI_n = Queue__Count(PI);
-   Display("* TOTAL_ INSTRUCTIONS=%d", PI_n);
-   Display("* NUMBER_OF_ITERATIONS=%d", G.iterations);
+   if (!G.silent) Display("* TOTAL_ INSTRUCTIONS=%d", PI_n);
+   if (!G.silent) Display("* NUMBER_OF_ITERATIONS=%d", G.iterations);
 }
 
 /*---------------------------------------------------------------------------*
@@ -3385,11 +3455,12 @@ void dump_pipeline(int stage, int ic_ini, int ic_end)
    strcpy(out1, ""); for (k = 1; k <= SCREENWIDTH; ++k) { strcat(out1, "="); } Display("%s", out1);
 
     // Build CYCLE-COUNT header
-    strcpy(out, "PC   INSTRUCTION        "); len = strlen(out);
+    strcpy(out, "PC   INSTRUCTION       "); len = strlen(out);
     for (k = 1; k < MAX_STAGE1; ++k) {
-        len += snprintf(out + len, sizeof(out) - len, "%s ", STAGE_ACR[k]);
+        len += snprintf(out + len, sizeof(out) - len, " %s ", STAGE_ACR[k]);
     }
     snprintf(out + len, sizeof(out) - len, "Pi,Pj Pk Pl    IW#  OPCD Pi  Pj  Pk I/Pl  Cj Ck Cl  ROB# PC  xi  oPi s x c  +-------------------+");
+    Display(out);
     
    // First pass for LQ
    row = 0;

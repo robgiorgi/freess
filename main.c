@@ -19,9 +19,9 @@ MODIFIED BY : XX[XX-XXX-XXXX]
 #define PROG_NAME       "freess"
 #define PROG_PRESEN     \
    "Free Superscalar Simulator - Copyright Roberto Giorgi - giorgi@acm.org\n"\
-   "v1.1 - Released 20-Oct-125 "
+   "v1.1 - Released 21-Oct-25 "
 #define PROG_PRESEN2    \
-   "FREESS v1.1 - Released 20-Oct-125 "
+   "FREESS v1.1 - Released 21-Oct-25 "
 #define PROG_ULINE      \
    "-------------------------------------------------------------------"
 
@@ -425,7 +425,7 @@ int MainConstr(int argc, char **argv)
          ++verbose; ok = 1;
          break;
       case 'd':
-         debug = 1; ok = 1;
+         ++debug; ok = 1;
          break;
       default:
          usage = 1;
@@ -580,7 +580,7 @@ int MainConstr(int argc, char **argv)
    }
 
    /* Log Ini Parameters */
-   LogIniParm();
+   if (!G.silent) LogIniParm();
 
    /* Show Program Headings */
    if (verbose) Display("%s", PROG_PRESEN2);
