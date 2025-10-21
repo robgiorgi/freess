@@ -171,6 +171,7 @@ typedef struct ROBEntryTAG {
    int ri;
    int piold;
    int cplt;
+   int cplt1; //just completed
    int cc;
    int exc;
    int st;
@@ -1272,7 +1273,7 @@ int CheckFU(Instruction *ip)
    }
 //printf("found=%d\n",found);
 //   if (!found) ++(FA[t].stalls);
-   sprintf(aux, "no %s-unit available", FUNAME[t1]);
+   sprintf(aux, "no %s-unit available for %s/%03d", FUNAME[t1], OPNAME[ip->opcode], ip->CIC);
    if (!found) LogStall(&(FA[t1].stalls), aux);
 
    return (found);
@@ -1457,7 +1458,7 @@ int CheckIWEntry(Instruction *ip)
 
     // RESERVATION STATIONS PER FU
     if (G.tomasulo) {
-        int opt = ip->optype; if (opt == S_FU) opt = L_FU;
+        int opt = ip->optype; if (opt == S_FU && AA.uni_lsu) opt = L_FU;
         if (FA[opt].rsallocated < FA[opt].rstotal) return (1); else return (0);
     }
 
@@ -1493,7 +1494,7 @@ int GetIWEntry(Instruction *ip, int *wk)
             IW[k2].cl = -1;
             IW[k2].optype = ip->optype;
             ++IWAllocated;
-            int opt = ip->optype; if (opt == S_FU) opt = L_FU;
+            int opt = ip->optype; if (opt == S_FU && AA.uni_lsu) opt = L_FU;
             ++(FA[opt].rsallocated);
             if (IWAllocated == AA.win_size) IWFull = 1;
             break;
@@ -2306,7 +2307,7 @@ int COMPLETE_DO(Instruction *ip)
 /* moved to DISPATCH_END
     // In case of Tomasulo: the IWEntry has been already dellaocated: here, just update the rsallocated count
     if (G.tomasulo) {
-//       int opt = ip->optype; if (opt == S_FU) opt = L_FU;
+//       int opt = ip->optype; if (opt == S_FU && AA.uni_lsu) opt = L_FU;
 //       --(FA[opt].rsallocated);
         int opt = ip->optype;
         if (opt != S_FU) --(FA[opt].rsallocated);
@@ -2316,6 +2317,7 @@ printf("RSDEALLOC\n");
 
     // SET THE COMPLETE-FLAG in the ROB
     RB[ip->robn].cplt = 1;
+    RB[ip->robn].cplt1 = 1;
    flag = 1;
 
    if (debug) if (!nldone) printf("\n");
@@ -2417,11 +2419,12 @@ int DISPATCH_END(Instruction *ipdummy)
     // Scan all completed ROB entries
     if (G.tomasulo) {
         for (int k = 0; k < AA.rob_size; ++k) {
-            if (RB[k].rbbusy && RB[k].cplt) {
+            if (RB[k].rbbusy && RB[k].cplt1) { //deallocated the RS only once the cplt has just flipped in COMPLETE (cplt1)
+                RB[k].cplt1 = 0;  // reset cplt1
                 Instruction *ip = RB[k].ip;
     // In case of Tomasulo: the IWEntry has been already dellaocated: here, just update the rsallocated count
                 int opt = ip->optype;
-                if (opt != S_FU) --(FA[opt].rsallocated);
+                if (opt!= B_FU && opt != S_FU) --(FA[opt].rsallocated); // B and S already deallocated in ISSUE
             }
         }
     }
