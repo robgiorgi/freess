@@ -2064,7 +2064,9 @@ int IssueIWEntry(Instruction **ipp)
                         //
 // printf("IIWE::delay=%d\n", IW[k].delay );
 //                        if (ip->optype != S_FU && IW[k].delay > 0 ) { flag = -2; }
-                        if (ip->wblat > 0) { flag = -2; ip->wblat--;}
+                        int prevwblat = ip->wblat;
+//                        if (ip->wblat > 0) { flag = -2; ip->wblat--;}
+                        if (ip->wblat > 0) { flag = -2;}
 
                         // Give prio to load or stores when #issued load+stores == AA.lsfu
                         if (flag == 1 && (ISSUEDLOADS+ISSUEDSTORES+readyloads+readystores) > TOTAL_LSU) {
@@ -2080,8 +2082,8 @@ int IssueIWEntry(Instruction **ipp)
                             }
                         }
     if (debug) {
-        NEEDLN = 1; printf("    --> IssueIWEntry #%02d: ip 0x%lX %s/%03d qj %d qk %d ql %d wait=%d wblat=%d flag=%d\n",\
-                    k, ip, OPNAME[ip->opcode], ip->CIC, IW[k].qj, IW[k].qk, IW[k].ql, ip->waiting, ip->wblat, flag);
+        NEEDLN = 1; printf("    --> IssueIWEntry #%02d: ip 0x%lX %s/%03d qj %d qk %d ql %d wait=%d prevwblat=%d flag=%d\n",\
+                    k, ip, OPNAME[ip->opcode], ip->CIC, IW[k].qj, IW[k].qk, IW[k].ql, ip->waiting, prevwblat, flag);
     }
 
 // printf("IIWE::flag=%d\n", flag);
@@ -2535,10 +2537,29 @@ int ISSUE_END(Instruction *ipdummy)
       }
    }
 */
+
+    // Scan IW to decrease wblat
+    if (IWAllocated) {
+        for (k = 0; k < AA.win_size; ++k) {
+            if (IW[k].busy == 1) {
+                ip = IW[k].ip;
+                if (ip != NULL) {
+                    if ( !(ip->waiting)) {
+
+                        //
+                        if (ip->wblat > 0) { ip->wblat--; }
+                    }
+                }
+            }
+        }
+    }
+
+    // Scan issue-stage-buffers
    for (k = 0; k < AA.i_width; ++k) {
       if (debug) { nldone = 0; printf("  ISSUE_END: I[%d]: ", k); }
       ip = sbp[k].ip;
       if (ip != NULL) {
+            
          if (ip->skipnextstage == 2) { ip->skipnextstage = 0; }
          if (ip->skipnextstage == 1) { ip->skipnextstage = 2; }
 /*
@@ -2937,9 +2958,9 @@ if (debug > 1) printf("  fup1=%08X st=%s STAGE_DELAY[st]=%d\n", ip0->fup1, STAGE
 
             //-------------------------------------------------------------------------------------
             found_transfer = 1; ++foundtransfers; if (debug) dbgln("");
-            if (debug) printf("     =====> TRANSFER %s/%03d  %s[%d] -> %s[%d]\n",
+            if (debug) printf("     =====> TRANSFER %s/%03d  %s[%d] -> %s[%d].%d\n",
                               ip0 ? OPNAME[ip0->opcode] : "----", ip0 ? ip0->CIC : -1,
-                              STAGE_ACR[st - 1], si, STAGE_ACR[st], di);
+                              STAGE_ACR[st - 1], si, STAGE_ACR[st], di, dst[di].delay);
             //-------------------------------------------------------------------------------------
 
             //
