@@ -1,6 +1,6 @@
 #!/bin/bash
 
-tests="c2050623 c2060705a c2060705b"
+tests="c2050623 c2060705a c2060705b c2100120"
 
 # Create a unique temp file, cleaned up automatically.
 tmpfile="$(mktemp "/tmp/myprog.XXXXXX")" || {

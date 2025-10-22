@@ -2159,6 +2159,62 @@ int ISSUE_DO(Instruction *ip)
 }
 
 /*---------------------------------------------------------------------------*
+ NAME      : ReorderXstage
+ PURPOSE   : Check if two instructions write-back at the same cycle and give prio to the one with lower CIC
+             to respect program order
+ PARAMETERS:
+ RETURN    :
+ *---------------------------------------------------------------------------*/
+int ReorderXstage(int kstart)
+{
+    int flag = 0, k, k1, mincic = 1000000, kfound1 = -1, kfound2 = -1, cic1, cic2;
+    Instruction *ip;
+    InstructionSlot *sbx = STAGE_BUF[EXECUTE];
+
+//        if (debug) { NEEDLN = 1; printf("  ReorderXstage:: X[%d]: ", k); }
+    // Scan all execute stage-buffer
+    // First find the slot with delay==1 and lowest CIC
+    for (k = 0; k < TotalFU; ++k) {
+        ip = sbx[k].ip;
+        if (ip != NULL) {
+            cic1 = ip->CIC;
+            int delay = sbx[k].delay;
+            if (delay == 1 && cic1 <= mincic) { mincic = cic1; kfound1 = k; }
+        }
+    }
+    cic1 = mincic;
+
+    // Second, find the first slot with delay==1
+    for (k = 0; k < TotalFU; ++k) {
+        k1 = (k + kstart) % TotalFU;
+        ip = sbx[k1].ip;
+        if (ip != NULL) {
+            cic2 = ip->CIC;
+            int delay = sbx[k1].delay;
+            if (delay == 1 && k1 != kfound1) { kfound2 = k1; break; }
+        }
+    }
+//printf("\nkfound1=%d kfound2=%d\n", kfound1, kfound2);
+
+    if (kfound1 >= 0 && kfound2 >= 0)
+        if (debug) printf("CK=%d    --> ReorderXstage::  BEFORE X[%d]=%s/%03d X[%d]=%s/%03d  (kstart=%d)\n", CK,
+kfound1, OPNAME[sbx[kfound1].ip->opcode], sbx[kfound1].ip->CIC, kfound2, OPNAME[sbx[kfound2].ip->opcode], sbx[kfound2].ip->CIC, kstart);
+    // exchange slots
+    if (kfound1 != kfound2 && kfound1 >= 0 && kfound2 >= 0 && ((kfound1 < kfound2 && (kstart > kfound1 && kstart <= kfound2)) || (kfound1 > kfound2 && (kstart < kfound1 && kstart <= kfound2)))) {
+        InstructionSlot temp;
+        memcpy(&temp,           &(sbx[kfound2]), sizeof(InstructionSlot));
+        memcpy(&(sbx[kfound2]), &(sbx[kfound1]), sizeof(InstructionSlot));
+        memcpy(&(sbx[kfound1]), &temp,           sizeof(InstructionSlot));
+        flag = 1;
+
+        if (debug) printf("    --> ReorderXstage::  EXCHANGED X[%d]=%s/%03d X[%d]=%s/%03d  (kstart=%d)\n",
+             kfound1, OPNAME[sbx[kfound1].ip->opcode], sbx[kfound1].ip->CIC, kfound2, OPNAME[sbx[kfound2].ip->opcode], sbx[kfound2].ip->CIC, kstart);
+    }
+
+    return (flag);
+}
+
+/*---------------------------------------------------------------------------*
  NAME      : DataMemCollision
  PURPOSE   : Check if this instruction is a L or S with less priority than another one ready
  PARAMETERS:
@@ -2738,8 +2794,14 @@ int COMPLETE_END(Instruction *ipdummy)
  *---------------------------------------------------------------------------*/
 int COMMIT_END(Instruction *ipdummy)
 {
-   //TODO; for the committed instructions, write the results of the Pregs into the Lregs
-   return(0);
+    int src_start = 0;
+    if (debug) Display("--COMMIT_END::");
+
+    if (STAGE_INORDER[EXECUTE]) src_start = (STAGE_LAST[EXECUTE] != -1) ? STAGE_LAST[EXECUTE] : 0;
+    ReorderXstage(src_start);
+
+    //TODO; for the committed instructions, write the results of the Pregs into the Lregs
+    return(0);
 }
 
 /*---------------------------------------------------------------------------*
@@ -2816,10 +2878,13 @@ int Stage(int st)
             if (ip_src) printf(" %s[%d].d=%d:%s/%03d",STAGE_ACR[st - 1], si, src[si].delay, OPNAME[ip_src->opcode], ip_src->CIC);
         }
 
+//        if (st == COMPLETE ) { ReorderXstage(src_start); }
+
         // If this instr. merges current and next stage (e.g., I+X for ADD/MUL/DIV, X+W for S, I+X+W for B)
         if (ip_src) { if (ip_src->skipnextstage) {  // go check another slot
             if (debug) printf(" (MERGE %s+%s)", STAGE_ACR[st - 1], STAGE_ACR[st]); continue; }
          }
+
 
         // If the source isn't ready yet, just age it and go check another slot
         if (st != FETCH && src[si].delay > SOURCE_READY_DELAY) { --(src[si].delay); continue; }
@@ -2875,7 +2940,8 @@ int Stage(int st)
             if (!StreamEnd || st != FETCH) ip0 = ip_src;
             if (!StreamEnd && st == FETCH) ip0 = InstructionMemoryRead();
             // COMMIT special case
-            if (st == COMMIT) { if (ReleaseROBEntry(&ip1)) ip0 = ip1; else { stage_end = 1; break; } }
+//            if (st == COMMIT) { if (ReleaseROBEntry(&ip1)) ip0 = ip1; else { stage_end = 1; break; } }
+            if (st == COMMIT) { if (ReleaseROBEntry(&ip1)) ip0 = ip1; else { break; } }
             // ISSUE special case
             if (st == ISSUE) { if (IssueIWEntry(&ip1)) ip0 = ip1; else { break; } }
 //printf("Hola2 ip0=%08X\n", ip0);fflush(stdout);
@@ -2997,6 +3063,7 @@ if (debug > 1) printf("  .....AFTER-DST-LOOP: stage_end=%d stop_after=%d st=%s\n
 
         // Compact after a successful DISPATCH transfer (legacy place)
         if (found_transfer && st == DISPATCH) {
+//        if (found_transfer && st == DISPATCH || st == EXECUTE)) {
             ec = CompactBuffer(st);
             if (ec) ExitProg("CompactBuffer failed in Stage(%s).", STAGE_NAME[st]);
         }
