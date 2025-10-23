@@ -613,6 +613,7 @@ const char* fmt_stall_cause(int val, char *buf, size_t buflen) {
         case -5: snprintf(buf, buflen, "NO_IW_SLOTS"); break;
         case -6: snprintf(buf, buflen, "NO_RS"); break;
         case -7: snprintf(buf, buflen, "MEMBUSY"); break;
+        case -8: snprintf(buf, buflen, "BRANCH"); break;
         default: snprintf(buf, buflen, "????"); break;
     }
     return buf;
@@ -3092,7 +3093,9 @@ if (debug > 1) printf("  fup1=%08X st=%s STAGE_DELAY[st]=%d\n", ip0->fup1, STAGE
             //
             if (branch_taken && STAGE_INORDER[st]) stop_after = 1;
 
+            Instruction *iptmp = ip0;
             if (src[si].delay == 0) { src[si].ip = NULL; src[si].delay = 0; } // free source slot
+//            if (st == DISPATCH && iptmp->optype == B_FU) { stage_end = 1; break; } // destination loop
             if (st != COMMIT) break; // destination loop
         } // (for k) end for each destination slot
         if (debug) if (foundtransfers) dbgln(""); // dbgln("ciao");
