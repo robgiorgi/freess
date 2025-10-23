@@ -1329,7 +1329,7 @@ int ReleaseFU(Instruction *ip)
    int j, t, nldone = 0, full;
    FUnit *fu, *ful;
 
-   MEMBUSY = 0;
+//   MEMBUSY = 0;
 
 
    if (verbose) printf("  --> ReleaseFU: ");
@@ -1550,7 +1550,8 @@ void ReleaseIWEntry(Instruction *ip, int wk)
     IW[wk].ip->issued = 1;
 
     // Special case: in Tomasulo, stores and branches are deallocating the RS at ISSUE time
-    if (G.tomasulo && ip->optype == S_FU) { --(FA[L_FU].rsallocated); MEMBUSY = 0;; }
+//    if (G.tomasulo && ip->optype == S_FU) { --(FA[L_FU].rsallocated); MEMBUSY = 0; }
+    if (G.tomasulo && ip->optype == S_FU) { --(FA[L_FU].rsallocated); }
     if (G.tomasulo && ip->optype == B_FU) --(FA[B_FU].rsallocated);
 
    --IWAllocated;
