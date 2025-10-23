@@ -2384,7 +2384,7 @@ int EXECUTE_DO(Instruction *ip)
  *---------------------------------------------------------------------------*/
 int COMPLETE_DO(Instruction *ip)
 {
-   int k, p, flag = 0, nldone = 0, reg, ok;
+   int flag = 0;
 
    if (debug) { dbgln(""); printf("  in COMPLETE: %-3s/%03d: ", OPNAME[ip->opcode], ip->CPC); }
 
@@ -2397,13 +2397,14 @@ int COMPLETE_DO(Instruction *ip)
 
       RF[RM[ip->pd].ri].vi = RM[ip->pd].vi;
       if (RF[RM[ip->pd].ri].pn == ip->pd) RF[RM[ip->pd].ri].qi = 0;
-      if (debug) printf("P%d.qi=%d  x%d.qi=%d\n", ip->pd, RM[ip->pd].qi, RM[ip->pd].ri, RF[RM[ip->pd].ri].qi);
+      if (debug) printf("P%d.qi=%d  x%d.qi=%d\n",
+                         ip->pd, RM[ip->pd].qi, RM[ip->pd].ri, RF[RM[ip->pd].ri].qi);
 
       /* Update Instruction Window */
-      for (k = 0; k < AA.win_size; ++k) {
+      for (int k = 0; k < AA.win_size; ++k) {
          if (IW[k].busy) {
-            if (debug) printf("  IW[%d] %s/%03d pi=%d pj=%d pk=%d pl=%d", \
-               k, OPNAME[(IW[k].ip)->opcode], (IW[k].ip)->CPC, IW[k].pj, IW[k].pj, IW[k].pk, IW[k].pl);
+            if (debug) { NEEDLN = 1; printf("  IW[%d] %s/%03d pi=%d pj=%d pk=%d pl=%d", \
+               k, OPNAME[(IW[k].ip)->opcode], (IW[k].ip)->CPC, IW[k].pj, IW[k].pj, IW[k].pk, IW[k].pl); }
 
             if (IW[k].pj == ip->pd && (IW[k].ip)->optype != S_FU) { IW[k].ip->wblat = AA.wblat; \
                 IW[k].qj = 0; IW[k].cj = CK; IW[k].ip->cj = CK; if (debug) printf(" upd QJ"); }
@@ -2417,7 +2418,7 @@ int COMPLETE_DO(Instruction *ip)
             if (debug) printf(",");
          }
       }
-      if (debug) { nldone = 1; printf("\n"); }
+     dbgln("");
    }
    if (ip->store) {
    }
@@ -2425,7 +2426,7 @@ int COMPLETE_DO(Instruction *ip)
    /* Update Store Queue */
    for (int k = 1; k <= SQElems; ++k) {
       int p = (SQTail - k + AA.sqsize) % AA.sqsize;
-
+      int reg;
       if (SQ[p]->opcode == STORE)  reg = SQ[p]->ps1;
       if (SQ[p]->opcode == STORE2) reg = SQ[p]->ps3;
       if (reg == ip->pd) { 
@@ -2434,7 +2435,7 @@ int COMPLETE_DO(Instruction *ip)
          if (SQ[p]->opcode == STORE2) SQ[p]->cl = CK;
             if (!STOREWAITS) {
                 dbgln("");
-                ok = InsertIntoStageBuffer(SQ[p], EXECUTE);
+                int ok = InsertIntoStageBuffer(SQ[p], EXECUTE);
                 if (ok != 1) ExitProg("Cannot propagate executed-store info");
             }
       }
@@ -2454,7 +2455,7 @@ int COMPLETE_DO(Instruction *ip)
    if (ip->store) {
 //      if (!SQEmpty) if (SQ[SQHead]->ql == 0) { PopSQ(); }
       if (!SQEmpty) if (SQ[SQHead]->qj == 0) {
-         if (debug) if (!nldone) { nldone = 1; printf("\n"); }
+         dbgln("");
          PopSQ();
       }
    }
@@ -2478,7 +2479,7 @@ printf("RSDEALLOC\n");
     RB[ip->robn].cplt1 = 1;
    flag = 1;
 
-   if (debug) if (!nldone) printf("\n");
+    dbgln("");
    if (verbose) {
       printf("* COMPLETE: %4s/%03d flag=%d winn=%d robn=%d pd=%d\n", OPNAME[ip->opcode], ip->CIC, flag, ip->winn, ip->robn, ip->pd);
    }
@@ -2606,7 +2607,7 @@ int DISPATCH_END(Instruction *ipdummy)
  *---------------------------------------------------------------------------*/
 int ISSUE_END(Instruction *ipdummy)
 {
-   int k, fa, nldone; 
+   int k, fa; 
    Instruction *ip;
    InstructionSlot *sbp = STAGE_BUF[ISSUE];
 
@@ -2644,7 +2645,7 @@ int ISSUE_END(Instruction *ipdummy)
 
     // Scan issue-stage-buffers
    for (k = 0; k < AA.i_width; ++k) {
-      if (debug) { nldone = 0; printf("  ISSUE_END: I[%d]: ", k); }
+      if (debug) { NEEDLN = 1; printf("  ISSUE_END: I[%d]: ", k); }
       ip = sbp[k].ip;
       if (ip != NULL) {
             
@@ -2655,12 +2656,12 @@ int ISSUE_END(Instruction *ipdummy)
          if (ip->optype != S_FU && ip->skipnextstage == 1) { ip->skipnextstage = 2; }
          if (ip->optype == S_FU && ip->skipnextstage == 1) { ip->skipnextstage = 3; }
 */
-         if (debug) { nldone = 1; printf("  %4s/%03d d=%d (skip=%d)\n", OPNAME[ip->opcode], ip->CIC, sbp[k].delay, ip->skipnextstage); }
+         if (debug) { NEEDLN = 0; printf("  %4s/%03d d=%d (skip=%d)\n", OPNAME[ip->opcode], ip->CIC, sbp[k].delay, ip->skipnextstage); }
          if (ip->skipnextstage == 0) { continue; }
 
             // Pipelined FU implementation: release the FU right after the issue
 //            if (ip->fup != NULL) {
-                if (ip->optype == M_FU || ip->optype == D_FU) {
+                if (ip->optype == M_FU || ip->optype == D_FU || ip->optype == A_FU) {
                     if (FA[ip->optype].pipe && sbp[k].delay == 1) ReleaseFU(ip);
                 } else {
                     if (sbp[k].delay == 1) ReleaseFU(ip);
@@ -2671,11 +2672,11 @@ int ISSUE_END(Instruction *ipdummy)
          if (sbp[k].delay == 2 && ip->optype == L_FU) ReleaseFU(ip);
          if (!STOREWAITS) if (sbp[k].delay == 2 && ip->optype == S_FU) ReleaseFU(ip);
       }
-      if (debug) if (!nldone) printf("\n");
+      dbgln("");
    }
 
-    // Scan all completed ROB entries
-    for (int k = 0; k < AA.rob_size; ++k) {
+    // For ALL completed instructions: release the correspomding FU
+    for (int k = 0; k < AA.rob_size; ++k) { // Scan all completed ROB entries
         if (RB[k].rbbusy && RB[k].cplt) {
             Instruction *ip = RB[k].ip;
     
