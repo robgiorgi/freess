@@ -19,9 +19,9 @@ MODIFIED BY : XX[XX-XXX-XXXX]
 #define PROG_NAME       "freess"
 #define PROG_PRESEN     \
    "Free Superscalar Simulator - Copyright Roberto Giorgi - giorgi@acm.org\n"\
-   "v1.1 - Released 21-Oct-25 "
+   "v1.1 - Released 23-Oct-25 "
 #define PROG_PRESEN2    \
-   "FREESS v1.1 - Released 21-Oct-25 "
+   "FREESS v1.1 - Released 23-Oct-25 "
 #define PROG_ULINE      \
    "-------------------------------------------------------------------"
 
@@ -72,43 +72,44 @@ static char	clv12[MAXLINELEN] = "yes";
 static char	clv13[MAXLINELEN] = "no";
 static char	clv14[MAXLINELEN] = "no";
 static char	clv15[MAXLINELEN] = "yes";
-static char	clv16[MAXLINELEN] = "4";
+static char	clv16[MAXLINELEN] = "yes";
 static char	clv17[MAXLINELEN] = "4";
 static char	clv18[MAXLINELEN] = "4";
 static char	clv19[MAXLINELEN] = "4";
 static char	clv20[MAXLINELEN] = "4";
 static char	clv21[MAXLINELEN] = "4";
-static char	clv22[MAXLINELEN] = "16";
+static char	clv22[MAXLINELEN] = "4";
 static char	clv23[MAXLINELEN] = "16";
-static char	clv24[MAXLINELEN] = "4";
-static char	clv25[MAXLINELEN] = "0";
-static char	clv26[MAXLINELEN] = "100";
-static char	clv27[MAXLINELEN] = "1";
-static char	clv28[MAXLINELEN] = "4";
-static char	clv29[MAXLINELEN] = "yes";
-static char	clv30[MAXLINELEN] = "100";
-static char	clv31[MAXLINELEN] = "1";
-static char	clv32[MAXLINELEN] = "4";
-static char	clv33[MAXLINELEN] = "yes";
-static char	clv34[MAXLINELEN] = "100";
-static char	clv35[MAXLINELEN] = "4";
-static char	clv36[MAXLINELEN] = "1";
+static char	clv24[MAXLINELEN] = "16";
+static char	clv25[MAXLINELEN] = "4";
+static char	clv26[MAXLINELEN] = "0";
+static char	clv27[MAXLINELEN] = "100";
+static char	clv28[MAXLINELEN] = "1";
+static char	clv29[MAXLINELEN] = "4";
+static char	clv30[MAXLINELEN] = "yes";
+static char	clv31[MAXLINELEN] = "100";
+static char	clv32[MAXLINELEN] = "1";
+static char	clv33[MAXLINELEN] = "4";
+static char	clv34[MAXLINELEN] = "yes";
+static char	clv35[MAXLINELEN] = "100";
+static char	clv36[MAXLINELEN] = "4";
 static char	clv37[MAXLINELEN] = "1";
-static char	clv38[MAXLINELEN] = "2";
-static char	clv39[MAXLINELEN] = "yes";
-static char	clv40[MAXLINELEN] = "1";
+static char	clv38[MAXLINELEN] = "1";
+static char	clv39[MAXLINELEN] = "2";
+static char	clv40[MAXLINELEN] = "yes";
 static char	clv41[MAXLINELEN] = "1";
-static char	clv42[MAXLINELEN] = "yes";
-static char	clv43[MAXLINELEN] = "no";
-static char	clv44[MAXLINELEN] = "100";
-static char	clv45[MAXLINELEN] = "1";
-static char	clv46[MAXLINELEN] = "0";
-static char	clv47[MAXLINELEN] = "100";
-static char	clv48[MAXLINELEN] = "1";
+static char	clv42[MAXLINELEN] = "1";
+static char	clv43[MAXLINELEN] = "yes";
+static char	clv44[MAXLINELEN] = "no";
+static char	clv45[MAXLINELEN] = "100";
+static char	clv46[MAXLINELEN] = "1";
+static char	clv47[MAXLINELEN] = "0";
+static char	clv48[MAXLINELEN] = "100";
 static char	clv49[MAXLINELEN] = "1";
-static char	clv50[MAXLINELEN] = "yes";
-static char	clv51[MAXLINELEN] = "0";
-static char	clv52[MAXLINELEN] = "def.log";
+static char	clv50[MAXLINELEN] = "1";
+static char	clv51[MAXLINELEN] = "yes";
+static char	clv52[MAXLINELEN] = "0";
+static char	clv53[MAXLINELEN] = "def.log";
 
 
 static struct option long_options[] =
@@ -138,6 +139,7 @@ static struct option long_options[] =
   {"ioi", required_argument, NULL, 0},
   {"ioc", required_argument, NULL, 0},
   {"unidi", required_argument, NULL, 0},
+  {"rsrel", required_argument, NULL, 0},
   {"fw", required_argument, NULL, 0},
   {"dw", required_argument, NULL, 0},
   {"pw", required_argument, NULL, 0},
@@ -207,6 +209,7 @@ static IniSection ArchitectureSec[] =
    "In-Order Issue",			YES_NO,	0,	0,	&AA.io_issue,
    "In-Order Complete",			YES_NO,	0,	0,	&AA.io_complete,
    "Unified Disp./Issue",		YES_NO,	0,	0,	&AA.uni_di,
+   "Early RS Release",			YES_NO,	0,	0,	&AA.early_rs_rel,
    "Fetch Width",			NUMVAL,	1,	MAXISSUEWIDTH,	&AA.f_width,
    "Decode Width",			NUMVAL,	1,	MAXISSUEWIDTH,	&AA.d_width,
    "Dispatch Width",			NUMVAL,	1,	MAXISSUEWIDTH,	&AA.p_width,
@@ -342,80 +345,82 @@ int MainConstr(int argc, char **argv)
             if (optarg) { strcpy(clv14, optarg); ok = 1; }
          if (strcmp("unidi", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv15, optarg); ok = 1; }
-         if (strcmp("fw", long_options[option_index].name) == 0)
+         if (strcmp("rsrel", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv16, optarg); ok = 1; }
-         if (strcmp("dw", long_options[option_index].name) == 0)
+         if (strcmp("fw", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv17, optarg); ok = 1; }
-         if (strcmp("pw", long_options[option_index].name) == 0)
+         if (strcmp("dw", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv18, optarg); ok = 1; }
-         if (strcmp("iw", long_options[option_index].name) == 0)
+         if (strcmp("pw", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv19, optarg); ok = 1; }
-         if (strcmp("ww", long_options[option_index].name) == 0)
+         if (strcmp("iw", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv20, optarg); ok = 1; }
-         if (strcmp("cw", long_options[option_index].name) == 0)
+         if (strcmp("ww", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv21, optarg); ok = 1; }
-         if (strcmp("wins	", long_options[option_index].name) == 0)
+         if (strcmp("cw", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv22, optarg); ok = 1; }
-         if (strcmp("robs	", long_options[option_index].name) == 0)
+         if (strcmp("wins	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv23, optarg); ok = 1; }
-         if (strcmp("afu	", long_options[option_index].name) == 0)
+         if (strcmp("robs	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv24, optarg); ok = 1; }
-         if (strcmp("alat", long_options[option_index].name) == 0)
+         if (strcmp("afu	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv25, optarg); ok = 1; }
-         if (strcmp("ars", long_options[option_index].name) == 0)
+         if (strcmp("alat", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv26, optarg); ok = 1; }
-         if (strcmp("mfu	", long_options[option_index].name) == 0)
+         if (strcmp("ars", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv27, optarg); ok = 1; }
-         if (strcmp("mlat", long_options[option_index].name) == 0)
+         if (strcmp("mfu	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv28, optarg); ok = 1; }
-         if (strcmp("mpipe", long_options[option_index].name) == 0)
+         if (strcmp("mlat", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv29, optarg); ok = 1; }
-         if (strcmp("mrs", long_options[option_index].name) == 0)
+         if (strcmp("mpipe", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv30, optarg); ok = 1; }
-         if (strcmp("dfu	", long_options[option_index].name) == 0)
+         if (strcmp("mrs", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv31, optarg); ok = 1; }
-         if (strcmp("dlat", long_options[option_index].name) == 0)
+         if (strcmp("dfu	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv32, optarg); ok = 1; }
-         if (strcmp("dpipe", long_options[option_index].name) == 0)
+         if (strcmp("dlat", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv33, optarg); ok = 1; }
-         if (strcmp("drs", long_options[option_index].name) == 0)
+         if (strcmp("dpipe", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv34, optarg); ok = 1; }
-         if (strcmp("ffu	", long_options[option_index].name) == 0)
+         if (strcmp("drs", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv35, optarg); ok = 1; }
-         if (strcmp("xfu	", long_options[option_index].name) == 0)
+         if (strcmp("ffu	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv36, optarg); ok = 1; }
-         if (strcmp("lfu	", long_options[option_index].name) == 0)
+         if (strcmp("xfu	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv37, optarg); ok = 1; }
-         if (strcmp("llat", long_options[option_index].name) == 0)
+         if (strcmp("lfu	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv38, optarg); ok = 1; }
-         if (strcmp("lpipe", long_options[option_index].name) == 0)
+         if (strcmp("llat", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv39, optarg); ok = 1; }
-         if (strcmp("sfu	", long_options[option_index].name) == 0)
+         if (strcmp("lpipe", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv40, optarg); ok = 1; }
-         if (strcmp("slat", long_options[option_index].name) == 0)
+         if (strcmp("sfu	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv41, optarg); ok = 1; }
-         if (strcmp("spipe", long_options[option_index].name) == 0)
+         if (strcmp("slat", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv42, optarg); ok = 1; }
-         if (strcmp("swaits", long_options[option_index].name) == 0)
+         if (strcmp("spipe", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv43, optarg); ok = 1; }
-         if (strcmp("lsrs", long_options[option_index].name) == 0)
+         if (strcmp("swaits", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv44, optarg); ok = 1; }
-         if (strcmp("bfu	", long_options[option_index].name) == 0)
+         if (strcmp("lsrs", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv45, optarg); ok = 1; }
-         if (strcmp("blat", long_options[option_index].name) == 0)
+         if (strcmp("bfu	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv46, optarg); ok = 1; }
-         if (strcmp("brs", long_options[option_index].name) == 0)
+         if (strcmp("blat", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv47, optarg); ok = 1; }
-         if (strcmp("lqs	", long_options[option_index].name) == 0)
+         if (strcmp("brs", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv48, optarg); ok = 1; }
-         if (strcmp("sqs	", long_options[option_index].name) == 0)
+         if (strcmp("lqs	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv49, optarg); ok = 1; }
-         if (strcmp("spec", long_options[option_index].name) == 0)
+         if (strcmp("sqs	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv50, optarg); ok = 1; }
-         if (strcmp("wblat	", long_options[option_index].name) == 0)
+         if (strcmp("spec", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv51, optarg); ok = 1; }
-         if (strcmp("logfile", long_options[option_index].name) == 0)
+         if (strcmp("wblat	", long_options[option_index].name) == 0)
             if (optarg) { strcpy(clv52, optarg); ok = 1; }
+         if (strcmp("logfile", long_options[option_index].name) == 0)
+            if (optarg) { strcpy(clv53, optarg); ok = 1; }
 
          break;
       case 'i':
@@ -461,43 +466,44 @@ int MainConstr(int argc, char **argv)
    strcat(iniv, "io_issue="); strcat(iniv, clv13); strcat(iniv, ";");
    strcat(iniv, "io_complete="); strcat(iniv, clv14); strcat(iniv, ";");
    strcat(iniv, "uni_di="); strcat(iniv, clv15); strcat(iniv, ";");
-   strcat(iniv, "f_width="); strcat(iniv, clv16); strcat(iniv, ";");
-   strcat(iniv, "d_width="); strcat(iniv, clv17); strcat(iniv, ";");
-   strcat(iniv, "p_width="); strcat(iniv, clv18); strcat(iniv, ";");
-   strcat(iniv, "i_width="); strcat(iniv, clv19); strcat(iniv, ";");
-   strcat(iniv, "w_width="); strcat(iniv, clv20); strcat(iniv, ";");
-   strcat(iniv, "c_width="); strcat(iniv, clv21); strcat(iniv, ";");
-   strcat(iniv, "win_size="); strcat(iniv, clv22); strcat(iniv, ";");
-   strcat(iniv, "rob_size="); strcat(iniv, clv23); strcat(iniv, ";");
-   strcat(iniv, "int_fu="); strcat(iniv, clv24); strcat(iniv, ";");
-   strcat(iniv, "a_lat="); strcat(iniv, clv25); strcat(iniv, ";");
-   strcat(iniv, "a_rs="); strcat(iniv, clv26); strcat(iniv, ";");
-   strcat(iniv, "im_fu="); strcat(iniv, clv27); strcat(iniv, ";");
-   strcat(iniv, "im_lat="); strcat(iniv, clv28); strcat(iniv, ";");
-   strcat(iniv, "im_pipe="); strcat(iniv, clv29); strcat(iniv, ";");
-   strcat(iniv, "im_rs="); strcat(iniv, clv30); strcat(iniv, ";");
-   strcat(iniv, "id_fu="); strcat(iniv, clv31); strcat(iniv, ";");
-   strcat(iniv, "id_lat="); strcat(iniv, clv32); strcat(iniv, ";");
-   strcat(iniv, "id_pipe="); strcat(iniv, clv33); strcat(iniv, ";");
-   strcat(iniv, "id_rs="); strcat(iniv, clv34); strcat(iniv, ";");
-   strcat(iniv, "fp_fu="); strcat(iniv, clv35); strcat(iniv, ";");
-   strcat(iniv, "fm_fu="); strcat(iniv, clv36); strcat(iniv, ";");
-   strcat(iniv, "l_fu="); strcat(iniv, clv37); strcat(iniv, ";");
-   strcat(iniv, "l_lat="); strcat(iniv, clv38); strcat(iniv, ";");
-   strcat(iniv, "l_pipe="); strcat(iniv, clv39); strcat(iniv, ";");
-   strcat(iniv, "s_fu="); strcat(iniv, clv40); strcat(iniv, ";");
-   strcat(iniv, "s_lat="); strcat(iniv, clv41); strcat(iniv, ";");
-   strcat(iniv, "s_pipe="); strcat(iniv, clv42); strcat(iniv, ";");
-   strcat(iniv, "s_waits="); strcat(iniv, clv43); strcat(iniv, ";");
-   strcat(iniv, "ls_rs="); strcat(iniv, clv44); strcat(iniv, ";");
-   strcat(iniv, "b_fu="); strcat(iniv, clv45); strcat(iniv, ";");
-   strcat(iniv, "b_lat="); strcat(iniv, clv46); strcat(iniv, ";");
-   strcat(iniv, "b_rs="); strcat(iniv, clv47); strcat(iniv, ";");
-   strcat(iniv, "lqsize="); strcat(iniv, clv48); strcat(iniv, ";");
-   strcat(iniv, "sqsize="); strcat(iniv, clv49); strcat(iniv, ";");
-   strcat(iniv, "speculation="); strcat(iniv, clv50); strcat(iniv, ";");
-   strcat(iniv, "wblat="); strcat(iniv, clv51); strcat(iniv, ";");
-   strcat(iniv, "logfile="); strcat(iniv, clv52); strcat(iniv, ";");
+   strcat(iniv, "early_rs_rel="); strcat(iniv, clv16); strcat(iniv, ";");
+   strcat(iniv, "f_width="); strcat(iniv, clv17); strcat(iniv, ";");
+   strcat(iniv, "d_width="); strcat(iniv, clv18); strcat(iniv, ";");
+   strcat(iniv, "p_width="); strcat(iniv, clv19); strcat(iniv, ";");
+   strcat(iniv, "i_width="); strcat(iniv, clv20); strcat(iniv, ";");
+   strcat(iniv, "w_width="); strcat(iniv, clv21); strcat(iniv, ";");
+   strcat(iniv, "c_width="); strcat(iniv, clv22); strcat(iniv, ";");
+   strcat(iniv, "win_size="); strcat(iniv, clv23); strcat(iniv, ";");
+   strcat(iniv, "rob_size="); strcat(iniv, clv24); strcat(iniv, ";");
+   strcat(iniv, "int_fu="); strcat(iniv, clv25); strcat(iniv, ";");
+   strcat(iniv, "a_lat="); strcat(iniv, clv26); strcat(iniv, ";");
+   strcat(iniv, "a_rs="); strcat(iniv, clv27); strcat(iniv, ";");
+   strcat(iniv, "im_fu="); strcat(iniv, clv28); strcat(iniv, ";");
+   strcat(iniv, "im_lat="); strcat(iniv, clv29); strcat(iniv, ";");
+   strcat(iniv, "im_pipe="); strcat(iniv, clv30); strcat(iniv, ";");
+   strcat(iniv, "im_rs="); strcat(iniv, clv31); strcat(iniv, ";");
+   strcat(iniv, "id_fu="); strcat(iniv, clv32); strcat(iniv, ";");
+   strcat(iniv, "id_lat="); strcat(iniv, clv33); strcat(iniv, ";");
+   strcat(iniv, "id_pipe="); strcat(iniv, clv34); strcat(iniv, ";");
+   strcat(iniv, "id_rs="); strcat(iniv, clv35); strcat(iniv, ";");
+   strcat(iniv, "fp_fu="); strcat(iniv, clv36); strcat(iniv, ";");
+   strcat(iniv, "fm_fu="); strcat(iniv, clv37); strcat(iniv, ";");
+   strcat(iniv, "l_fu="); strcat(iniv, clv38); strcat(iniv, ";");
+   strcat(iniv, "l_lat="); strcat(iniv, clv39); strcat(iniv, ";");
+   strcat(iniv, "l_pipe="); strcat(iniv, clv40); strcat(iniv, ";");
+   strcat(iniv, "s_fu="); strcat(iniv, clv41); strcat(iniv, ";");
+   strcat(iniv, "s_lat="); strcat(iniv, clv42); strcat(iniv, ";");
+   strcat(iniv, "s_pipe="); strcat(iniv, clv43); strcat(iniv, ";");
+   strcat(iniv, "s_waits="); strcat(iniv, clv44); strcat(iniv, ";");
+   strcat(iniv, "ls_rs="); strcat(iniv, clv45); strcat(iniv, ";");
+   strcat(iniv, "b_fu="); strcat(iniv, clv46); strcat(iniv, ";");
+   strcat(iniv, "b_lat="); strcat(iniv, clv47); strcat(iniv, ";");
+   strcat(iniv, "b_rs="); strcat(iniv, clv48); strcat(iniv, ";");
+   strcat(iniv, "lqsize="); strcat(iniv, clv49); strcat(iniv, ";");
+   strcat(iniv, "sqsize="); strcat(iniv, clv50); strcat(iniv, ";");
+   strcat(iniv, "speculation="); strcat(iniv, clv51); strcat(iniv, ";");
+   strcat(iniv, "wblat="); strcat(iniv, clv52); strcat(iniv, ";");
+   strcat(iniv, "logfile="); strcat(iniv, clv53); strcat(iniv, ";");
 
 
    strcpy(iniv1, iniv);
@@ -529,43 +535,44 @@ int MainConstr(int argc, char **argv)
    AA.io_issue = (0 == strcmp(clv13, "yes") ? 1 : 0);
    AA.io_complete = (0 == strcmp(clv14, "yes") ? 1 : 0);
    AA.uni_di = (0 == strcmp(clv15, "yes") ? 1 : 0);
-   IsNumVal(clv16, &(AA.f_width));;
-   IsNumVal(clv17, &(AA.d_width));;
-   IsNumVal(clv18, &(AA.p_width));;
-   IsNumVal(clv19, &(AA.i_width));;
-   IsNumVal(clv20, &(AA.w_width));;
-   IsNumVal(clv21, &(AA.c_width));;
-   IsNumVal(clv22, &(AA.win_size));;
-   IsNumVal(clv23, &(AA.rob_size));;
-   IsNumVal(clv24, &(AA.int_fu));;
-   IsNumVal(clv25, &(AA.a_lat));;
-   IsNumVal(clv26, &(AA.a_rs));;
-   IsNumVal(clv27, &(AA.im_fu));;
-   IsNumVal(clv28, &(AA.im_lat));;
-   AA.im_pipe = (0 == strcmp(clv29, "yes") ? 1 : 0);
-   IsNumVal(clv30, &(AA.im_rs));;
-   IsNumVal(clv31, &(AA.id_fu));;
-   IsNumVal(clv32, &(AA.id_lat));;
-   AA.id_pipe = (0 == strcmp(clv33, "yes") ? 1 : 0);
-   IsNumVal(clv34, &(AA.id_rs));;
-   IsNumVal(clv35, &(AA.fp_fu));;
-   IsNumVal(clv36, &(AA.fm_fu));;
-   IsNumVal(clv37, &(AA.l_fu));;
-   IsNumVal(clv38, &(AA.l_lat));;
-   AA.l_pipe = (0 == strcmp(clv39, "yes") ? 1 : 0);
-   IsNumVal(clv40, &(AA.s_fu));;
-   IsNumVal(clv41, &(AA.s_lat));;
-   AA.s_pipe = (0 == strcmp(clv42, "yes") ? 1 : 0);
-   AA.s_waits = (0 == strcmp(clv43, "yes") ? 1 : 0);
-   IsNumVal(clv44, &(AA.ls_rs));;
-   IsNumVal(clv45, &(AA.b_fu));;
-   IsNumVal(clv46, &(AA.b_lat));;
-   IsNumVal(clv47, &(AA.b_rs));;
-   IsNumVal(clv48, &(AA.lqsize));;
-   IsNumVal(clv49, &(AA.sqsize));;
-   AA.speculation = (0 == strcmp(clv50, "yes") ? 1 : 0);
-   IsNumVal(clv51, &(AA.wblat));;
-   strcpy(Pro.logfile, clv52);
+   AA.early_rs_rel = (0 == strcmp(clv16, "yes") ? 1 : 0);
+   IsNumVal(clv17, &(AA.f_width));;
+   IsNumVal(clv18, &(AA.d_width));;
+   IsNumVal(clv19, &(AA.p_width));;
+   IsNumVal(clv20, &(AA.i_width));;
+   IsNumVal(clv21, &(AA.w_width));;
+   IsNumVal(clv22, &(AA.c_width));;
+   IsNumVal(clv23, &(AA.win_size));;
+   IsNumVal(clv24, &(AA.rob_size));;
+   IsNumVal(clv25, &(AA.int_fu));;
+   IsNumVal(clv26, &(AA.a_lat));;
+   IsNumVal(clv27, &(AA.a_rs));;
+   IsNumVal(clv28, &(AA.im_fu));;
+   IsNumVal(clv29, &(AA.im_lat));;
+   AA.im_pipe = (0 == strcmp(clv30, "yes") ? 1 : 0);
+   IsNumVal(clv31, &(AA.im_rs));;
+   IsNumVal(clv32, &(AA.id_fu));;
+   IsNumVal(clv33, &(AA.id_lat));;
+   AA.id_pipe = (0 == strcmp(clv34, "yes") ? 1 : 0);
+   IsNumVal(clv35, &(AA.id_rs));;
+   IsNumVal(clv36, &(AA.fp_fu));;
+   IsNumVal(clv37, &(AA.fm_fu));;
+   IsNumVal(clv38, &(AA.l_fu));;
+   IsNumVal(clv39, &(AA.l_lat));;
+   AA.l_pipe = (0 == strcmp(clv40, "yes") ? 1 : 0);
+   IsNumVal(clv41, &(AA.s_fu));;
+   IsNumVal(clv42, &(AA.s_lat));;
+   AA.s_pipe = (0 == strcmp(clv43, "yes") ? 1 : 0);
+   AA.s_waits = (0 == strcmp(clv44, "yes") ? 1 : 0);
+   IsNumVal(clv45, &(AA.ls_rs));;
+   IsNumVal(clv46, &(AA.b_fu));;
+   IsNumVal(clv47, &(AA.b_lat));;
+   IsNumVal(clv48, &(AA.b_rs));;
+   IsNumVal(clv49, &(AA.lqsize));;
+   IsNumVal(clv50, &(AA.sqsize));;
+   AA.speculation = (0 == strcmp(clv51, "yes") ? 1 : 0);
+   IsNumVal(clv52, &(AA.wblat));;
+   strcpy(Pro.logfile, clv53);
 
    strcpy(flogname, Pro.logfile);
 
@@ -644,6 +651,7 @@ Options:\n\
   -ioi <in-order_issue>		  In-Order Issue (no)\n\
   -ioc <in-order_complete>	  In-Order Complete (no)\n\
   -unidi <unified_disp./issue>	  Unified Dispatch/Issue (yes)\n\
+  -rsrel <early_rs_release>	  Early RS Release (yes)\n\
   -fw <fetch_width>		  Fetch Width (4)\n\
   -dw <decode_width>		  Decode Width (4)\n\
   -pw <dispatch_width>		  Dispatch Width (4)\n\

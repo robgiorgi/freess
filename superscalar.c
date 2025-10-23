@@ -130,6 +130,7 @@ typedef struct InstructionTAG {
    int pold;
    int robn;
    int winn;
+   int issued;
    int lsqn;
    int waiting;
    FUnit *fup;
@@ -1437,7 +1438,11 @@ int ReleaseROBEntry(Instruction **ipp)
          piold = RB[RBHead].piold;
          ri    = RB[RBHead].ri;
          *ipp  = RB[RBHead].ip;
-         if (debug) printf("  - Release ROB entry: %s\n", OPNAME[(*ipp)->opcode]);
+
+            if (debug) { dbgln("");
+                printf("  - Releasing ROB entry: %s\n", OPNAME[(*ipp)->opcode]);
+            }
+
          (*ipp)->t[COMMIT] = CK;
          print_RBEntry(*ipp, (*ipp)->rbs);
          (*ipp)->robn = -1;
@@ -1455,8 +1460,8 @@ int ReleaseROBEntry(Instruction **ipp)
          if (RBTail == RBHead) RBEmpty = 1;
       }
    }
-   if (verbose) {
-      printf("    ReleaseROBEntry: flag=%d ri=%d piold=%d RBHead=%d-->%d RBEmpty=%d\n", flag, ri, piold, a, RBHead, RBEmpty);
+   if (verbose) { dbgln("");
+      printf("  ==ReleaseROBEntry: flag=%d ri=%d piold=%d RBHead=%d-->%d RBEmpty=%d\n", flag, ri, piold, a, RBHead, RBEmpty);
    }
    
    return (flag);
@@ -1538,6 +1543,8 @@ void ReleaseIWEntry(Instruction *ip, int wk)
    // Save the IW entry in the IW Buffer (IWB) so that I can print it later
    memcpy((void *)(&IWB[wk]), (void *)(&IW[wk]), sizeof(WindowEntry));
    IW[wk].busy = 0;
+//    IW[wk].ip->winn = -1;
+    IW[wk].ip->issued = 1;
 
     // Special case: in Tomasulo, stores and branches are deallocating the RS it ISSUE time
     if (G.tomasulo && ip->optype == S_FU) --(FA[L_FU].rsallocated);
@@ -2068,6 +2075,7 @@ int IssueIWEntry(Instruction **ipp)
 //                        if (ip->wblat > 0) { flag = -2; ip->wblat--;}
                         if (ip->wblat > 0) { flag = -2;}
 
+/*
                         // Give prio to load or stores when #issued load+stores == AA.lsfu
                         if (flag == 1 && (ISSUEDLOADS+ISSUEDSTORES+readyloads+readystores) > TOTAL_LSU) {
                             if (AA.uni_lsu) {
@@ -2081,6 +2089,7 @@ int IssueIWEntry(Instruction **ipp)
                                 if (ISSUEDSTORES == AA.l_fu && ip->optype == S_FU) { flag = 0; continue; }
                             }
                         }
+*/
     if (debug) {
         NEEDLN = 1; printf("    --> IssueIWEntry #%02d: ip 0x%lX %s/%03d qj %d qk %d ql %d wait=%d prevwblat=%d flag=%d\n",\
                     k, ip, OPNAME[ip->opcode], ip->CIC, IW[k].qj, IW[k].qk, IW[k].ql, ip->waiting, prevwblat, flag);
@@ -2126,6 +2135,26 @@ int IssueIWEntry(Instruction **ipp)
         if (ipfound) printf("%4s/%03d\n",OPNAME[ipfound->opcode], ipfound->CIC); else printf("\n");
     }
 
+    // Early release of RS
+    // Scan all completed ROB entries
+    if (G.tomasulo) {
+        for (int k = 0; k < AA.rob_size; ++k) {
+            if (RB[k].rbbusy) { //deallocated the RS only once the cplt has just flipped in COMPLETE (cplt1)
+                if (AA.early_rs_rel) {
+                    Instruction *ip = RB[k].ip;
+    // In case of Tomasulo: the IWEntry has been already dellaocated: here, just update the rsallocated count
+if (ip->issued) {
+                    ip->issued = 0; //reset flag
+                    int opt = ip->optype;
+                    if (opt!= B_FU && opt != S_FU) {
+                        if (FA[opt].rsallocated > 0) --(FA[opt].rsallocated); // B and S already deallocated in ISSUE
+                        if (debug > 2) printf("  - deallocated RS for %s/%03d rsallocated(%s)=%d\n", OPNAME[ip->opcode], ip->CIC, FUNAME[opt], FA[opt].rsallocated);
+                    }
+}
+                }
+            }
+        }
+    }
     return (flag);
 }
 
@@ -2242,7 +2271,7 @@ int DataMemCollision(Instruction *ip)
         }
     }
     if (debug) 
-        printf("    --> DataMemCollision::  %s/%03d collision=%d\n", OPNAME[ip->opcode], ip->CIC, flag);
+        if (flag) printf("    --> DataMemCollision::  %s/%03d collision=%d\n", OPNAME[ip->opcode], ip->CIC, flag);
 
     return (flag);
 }
@@ -2549,11 +2578,16 @@ int DISPATCH_END(Instruction *ipdummy)
     if (G.tomasulo) {
         for (int k = 0; k < AA.rob_size; ++k) {
             if (RB[k].rbbusy && RB[k].cplt1) { //deallocated the RS only once the cplt has just flipped in COMPLETE (cplt1)
-                RB[k].cplt1 = 0;  // reset cplt1
-                Instruction *ip = RB[k].ip;
-    // In case of Tomasulo: the IWEntry has been already dellaocated: here, just update the rsallocated count
-                int opt = ip->optype;
-                if (opt!= B_FU && opt != S_FU) --(FA[opt].rsallocated); // B and S already deallocated in ISSUE
+                if (!AA.early_rs_rel) {
+                    RB[k].cplt1 = 0;  // reset cplt1
+                    Instruction *ip = RB[k].ip;
+        // In case of Tomasulo: the IWEntry has been already dellaocated: here, just update the rsallocated count
+                    int opt = ip->optype;
+                    if (opt!= B_FU && opt != S_FU) {
+                        --(FA[opt].rsallocated); // B and S already deallocated in ISSUE
+                        if (debug > 2) printf("  - deallocated RS for %s/%03d\n", OPNAME[ip->opcode], ip->CIC);
+                    }
+                }
             }
         }
     }
@@ -2586,13 +2620,11 @@ int ISSUE_END(Instruction *ipdummy)
     }
 
    /* Model pipelining by freeing FUs at the end of stage */
-/*
    for (fa = 1; fa <= MAXFT; ++fa) {
       for (k = 1; k <= FA[fa].tot; ++k) {
          if (FA[fa].pipe && fa != L_FU && FA[fa].FU[k].busy1) { FA[fa].FU[k].busy1 = 0; --FA[fa].busy2; }
       }
    }
-*/
 
     // Scan IW to decrease wblat
     if (IWAllocated) {
@@ -2653,6 +2685,7 @@ int ISSUE_END(Instruction *ipdummy)
             }
         }
     }
+
 
 // ReleaseFU(ip);
    return(0);
@@ -2916,12 +2949,17 @@ int Stage(int st)
             Instruction *ip_dst = dst[di].ip;
             action_rc = 0;
 
-            if (debug) { if (ip_dst) printf(" %s[%d].d=%d:%s/%03d",STAGE_ACR[st], di, dst[di].delay, OPNAME[ip_dst->opcode], ip_dst->CIC);}
-
+            if (debug) { NEEDLN = 1;
+                if (ip_dst) printf(" %s[%d].d=%d:%s/%03d",
+                  STAGE_ACR[st], di, dst[di].delay, OPNAME[ip_dst->opcode], ip_dst->CIC);
+                else printf(" %s[%d]:FREE",STAGE_ACR[st], di);
+            }
 
             // Destination free if delay==0, or we’re at the terminal stage (legacy: >= MAX_STAGE-1)
             int dest_free = (dst[di].delay == DEST_FREE_DELAY) || (st >= MAX_STAGE - 1);
+//LOOP!            int dest_free = (dst[di].delay == DEST_FREE_DELAY) || (st >= MAX_STAGE - 1) ||st == ISSUE;
             if (!dest_free) {
+printf("\nBUNG!\n");
                 action_rc = -3;
                 continue; //no avail slot: go check next slot
             }
@@ -3036,7 +3074,7 @@ if (debug > 1) printf("  fup1=%08X st=%s STAGE_DELAY[st]=%d\n", ip0->fup1, STAGE
             if (st != COMMIT) break; // destination loop
         } // (for k) end for each destination slot
         if (debug) if (foundtransfers) dbgln(""); // dbgln("ciao");
-if (debug > 1) printf("  .....END-DST-LOOP: stage_end=%d stop_after=%d st=%s\n", stage_end, stop_after,  STAGE_ACR[st]);
+if (debug > 1) { dbgln(""); printf("  .....END-DST-LOOP: stage_end=%d stop_after=%d st=%s\n", stage_end, stop_after,  STAGE_ACR[st]); }
 
         // If we couldn’t move but had a ready instruction, log the stall
         if (!stage_end && !found_transfer && ip_src != NULL) {
@@ -3059,7 +3097,7 @@ if (debug > 1) printf("  .....END-DST-LOOP: stage_end=%d stop_after=%d st=%s\n",
         if (stop_after || stage_end || (st==COMMIT)) {
             break;
         }
-if (debug > 1) printf("  .....AFTER-DST-LOOP: stage_end=%d stop_after=%d st=%s\n", stage_end, stop_after,  STAGE_ACR[st]);
+if (debug > 1) { dbgln(""); printf("  .....AFTER-DST-LOOP: stage_end=%d stop_after=%d st=%s\n", stage_end, stop_after,  STAGE_ACR[st]); }
 
         // Compact after a successful DISPATCH transfer (legacy place)
         if (found_transfer && st == DISPATCH) {
@@ -3257,6 +3295,7 @@ void read_program(char *pn)
              ip->pold = -1;
              ip->robn = -1;
              ip->winn = -1;
+             ip->issued = 0;
              strcpy(ip->iws, "");
              strcpy(ip->rbs, "");
              ip->inqueue = 0;

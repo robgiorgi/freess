@@ -57,6 +57,7 @@ typedef struct ArchitectureTAG
 	int     io_issue;
 	int     io_complete;
 	int     uni_di;
+	int     early_rs_rel;
 	int     f_width;
 	int     d_width;
 	int     p_width;

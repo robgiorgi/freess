@@ -1,6 +1,6 @@
 #!/bin/bash
 
-tests="c2050623 c2060705a c2060705b c2100120"
+tests="c2050623 c2060705a c2060705b c2100120 c2130204a c2130204b"
 
 # Create a unique temp file, cleaned up automatically.
 tmpfile="$(mktemp "/tmp/myprog.XXXXXX")" || {
@@ -14,7 +14,7 @@ out2="$tmpfile"
 # Loop on tests
 for t in $tests; do
    echo -n "* Testing $t"
-   ./run-$t.sh -s yes |extractcycles.sh > $tmpfile
+   ./run-$t.sh -s yes $* |extractcycles.sh > $tmpfile
    out1="$t.cycles"
    outd=`diff $out1 $out2`
    if [ -z "$outd" ]; then
