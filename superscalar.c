@@ -282,7 +282,7 @@ int TOTAL_LSU = 0;
 FILE *CO = NULL; /* Cycle Out file pointer */
 FILE *LOGSTALL = NULL; /* Cycle Out file pointer */
 int IWKCURR = 0;
-int ISSUEDLOADS = 0, ISSUEDSTORES = 0, COMPLETEDINSTR = 0;
+int ISSUEDLOADS = 0, ISSUEDSTORES = 0, COMPLETEDINSTR = 0, ISSUEDINSTR = 0, MEMBUSY = 0;
 
 Instruction * LastInst;
 InstrFormat IAR[] = {
@@ -449,7 +449,7 @@ int Superscalar__Constr(void)
    STAGE_SIZ[FETCH] = AA.f_width;
    STAGE_SIZ[DECODE] = AA.d_width;
    STAGE_SIZ[DISPATCH] = AA.p_width;
-   STAGE_SIZ[ISSUE] = AA.i_width;
+   STAGE_SIZ[ISSUE] = AA.i_width + 1; //RG251023: temporary patch
    STAGE_SIZ[EXECUTE] = TotalFU;
    STAGE_SIZ[COMPLETE] = AA.w_width;
    STAGE_SIZ[COMMIT] = AA.c_width;
@@ -612,6 +612,7 @@ const char* fmt_stall_cause(int val, char *buf, size_t buflen) {
         case -4: snprintf(buf, buflen, "NO_ROB_SLOTS"); break;
         case -5: snprintf(buf, buflen, "NO_IW_SLOTS"); break;
         case -6: snprintf(buf, buflen, "NO_RS"); break;
+        case -7: snprintf(buf, buflen, "MEMBUSY"); break;
         default: snprintf(buf, buflen, "????"); break;
     }
     return buf;
@@ -1328,6 +1329,9 @@ int ReleaseFU(Instruction *ip)
    int j, t, nldone = 0, full;
    FUnit *fu, *ful;
 
+   MEMBUSY = 0;
+
+
    if (verbose) printf("  --> ReleaseFU: ");
    if (verbose) if (ip == NULL) { printf("\n"); return (1); }
    t = ip->optype;
@@ -1367,13 +1371,12 @@ int ReleaseFU(Instruction *ip)
                }
 //  (FA[L_FU].FU[1].ip)->t[ISSUE] = CK;
 //  (FA[L_FU].FU[1].ip)->fup = NULL;
-
             }
             break;
         default:
            if (fu->busy1 == 1) {
               if (verbose) { nldone = 0; if (verbose) printf(", %d:%4s/%03d", j, OPNAME[fu->ip->opcode], fu->ip->CIC); }
-if (debug > 1) printf(" --> RELEASING FA[t]=%s.%d\n", FUNAME[t], j);
+if (debug > 1) printf(" --> RELEASING FA[t]=%s.%d   MEMBUSY=%d\n", FUNAME[t], j, MEMBUSY);
               fu->busy1 = 0;
               --(FA[t].busy2);
            }
@@ -1546,8 +1549,8 @@ void ReleaseIWEntry(Instruction *ip, int wk)
 //    IW[wk].ip->winn = -1;
     IW[wk].ip->issued = 1;
 
-    // Special case: in Tomasulo, stores and branches are deallocating the RS it ISSUE time
-    if (G.tomasulo && ip->optype == S_FU) --(FA[L_FU].rsallocated);
+    // Special case: in Tomasulo, stores and branches are deallocating the RS at ISSUE time
+    if (G.tomasulo && ip->optype == S_FU) { --(FA[L_FU].rsallocated); MEMBUSY = 0;; }
     if (G.tomasulo && ip->optype == B_FU) --(FA[B_FU].rsallocated);
 
    --IWAllocated;
@@ -2194,11 +2197,14 @@ int ISSUE_DO(Instruction *ip)
  PARAMETERS:
  RETURN    :
  *---------------------------------------------------------------------------*/
-int ReorderXstage(int kstart)
+int ReorderXstage(int st)
 {
-    int flag = 0, k, k1, mincic = 1000000, kfound1 = -1, kfound2 = -1, cic1, cic2;
+    int flag = 0, k, k1, mincic = 1000000, kfound1 = -1, kfound2 = -1, cic1, cic2, kstart = 0;
     Instruction *ip;
     InstructionSlot *sbx = STAGE_BUF[EXECUTE];
+
+    // define kstart
+    if (STAGE_INORDER[st]) kstart = (STAGE_LAST[st] != -1) ? STAGE_LAST[st] : 0;
 
 //        if (debug) { NEEDLN = 1; printf("  ReorderXstage:: X[%d]: ", k); }
     // Scan all execute stage-buffer
@@ -2323,12 +2329,17 @@ int EXECUTE_DO(Instruction *ip)
          ip->fup = ip->fup1; flag = 1;
          break;
       case LOAD:
+         if (debug > 2) printf("MEMBUSY=%d\n",MEMBUSY);
+         if (MEMBUSY) { flag = -7; break; }
+         MEMBUSY = 1;
          efad = RM[ip->ps1].vi + ip->ps3;
          ip->efad = efad;
 //Display("L efad=%08X",efad);
          ip->fup = ip->fup1; flag = 1;
         break;
       case STORE:
+         if (debug > 2) printf("MEMBUSY=%d\n",MEMBUSY);
+        if (MEMBUSY) { flag = -7; break; }
 //         ea = RM[ip->ps1].vi + ip->ps2;
          efad = RM[ip->ps2].vi + ip->ps3;
          ip->efad = efad;
@@ -2341,15 +2352,19 @@ int EXECUTE_DO(Instruction *ip)
                 if (ip->skipnextstage == 1) ip->skipnextstage = 2;
 */
                 ip->fup = ip->fup1; flag = 1;
+                MEMBUSY = 1;
             }
          break;
       case LOAD2:
+         if (MEMBUSY) { flag = -7; break; }
+         MEMBUSY = 1;
          efad = RM[ip->ps1].vi + RM[ip->ps2].vi;
          ip->efad = efad;
 //Display("L efad=%08X  -- P%d P%d x%d x%d %08X  %08X",efad,ip->ps1,ip->ps2,RM[ip->ps1].qi,RM[ip->ps2].qi,RM[ip->ps1].vi,RM[ip->ps2].vi);
          ip->fup = ip->fup1; flag = 1;
          break;
       case STORE2:
+         if (MEMBUSY) { flag = -7; break; }
 //         efad = RM[ip->ps2].vi + RM[ip->ps2].vi;
 //         efad = RM[ip->ps2].vi + RM[ip->ps3].vi;
          efad = RM[ip->ps1].vi + RM[ip->ps2].vi;
@@ -2362,6 +2377,7 @@ int EXECUTE_DO(Instruction *ip)
                 if (ip->skipnextstage == 2) { ip->skipnextstage = 0; ip->fup = ip->fup1; flag = 1; } 
                 if (ip->skipnextstage == 1) ip->skipnextstage = 2;
 */
+                MEMBUSY = 1;
             }
          break;
       case NOP:
@@ -2371,7 +2387,7 @@ int EXECUTE_DO(Instruction *ip)
    }
 
    if (verbose) {
-      printf("* EXECUTE: %4s/%03d flag=%d winn=%d robn=%d pd=%d\n", OPNAME[ip->opcode], ip->CIC, flag, ip->winn, ip->robn, ip->pd);
+      printf("* EXECUTE: %4s/%03d flag=%d MEMBUSY=%d winn=%d robn=%d pd=%d\n", OPNAME[ip->opcode], ip->CIC, flag, MEMBUSY, ip->winn, ip->robn, ip->pd);
    }
    return (flag);
 }
@@ -2477,6 +2493,7 @@ printf("RSDEALLOC\n");
     // SET THE COMPLETE-FLAG in the ROB
     RB[ip->robn].cplt = 1;
     RB[ip->robn].cplt1 = 1;
+    if (ip->optype == L_FU || ip->optype == S_FU) MEMBUSY = 0;
    flag = 1;
 
     dbgln("");
@@ -2620,6 +2637,8 @@ int ISSUE_END(Instruction *ipdummy)
 //        if (RB[IW[k].ip->robn].cplt1 && IW[k].ip->wblat > 0 ) { (IW[k].ip->wblat)--; }
     }
 
+    ReorderXstage(ISSUE);
+
    /* Model pipelining by freeing FUs at the end of stage */
    for (fa = 1; fa <= MAXFT; ++fa) {
       for (k = 1; k <= FA[fa].tot; ++k) {
@@ -2644,7 +2663,7 @@ int ISSUE_END(Instruction *ipdummy)
     }
 
     // Scan issue-stage-buffers
-   for (k = 0; k < AA.i_width; ++k) {
+   for (k = 0; k < STAGE_SIZ[ISSUE]; ++k) {
       if (debug) { NEEDLN = 1; printf("  ISSUE_END: I[%d]: ", k); }
       ip = sbp[k].ip;
       if (ip != NULL) {
@@ -2687,7 +2706,7 @@ int ISSUE_END(Instruction *ipdummy)
         }
     }
 
-
+    ISSUEDINSTR = 0;
 // ReleaseFU(ip);
    return(0);
 }
@@ -2759,6 +2778,7 @@ int EXECUTE_END(Instruction *ipdummy)
                 RB[ip->robn].cplt = 1;
                 ip->t[COMPLETE] = CK;      // stage timestamp
                 ip->fup   = NULL;    // consumed
+                MEMBUSY = 0;
                 RemoveFromStageBuffer(ip, EXECUTE);
                 ReleaseFU(ip);
         //                ok = InsertIntoStageBuffer(SQ[p], COMPLETE);
@@ -2828,11 +2848,9 @@ int COMPLETE_END(Instruction *ipdummy)
  *---------------------------------------------------------------------------*/
 int COMMIT_END(Instruction *ipdummy)
 {
-    int src_start = 0;
     if (debug) Display("--COMMIT_END::");
 
-    if (STAGE_INORDER[EXECUTE]) src_start = (STAGE_LAST[EXECUTE] != -1) ? STAGE_LAST[EXECUTE] : 0;
-    ReorderXstage(src_start);
+    ReorderXstage(EXECUTE);
 
     //TODO; for the committed instructions, write the results of the Pregs into the Lregs
     return(0);
@@ -2925,6 +2943,7 @@ int Stage(int st)
 
         //
         if (st == COMPLETE ) { if (COMPLETEDINSTR == AA.w_width) continue; }
+        if (st == ISSUE ) { if (ISSUEDINSTR == AA.i_width) continue; }
 
         // Source is considered "ready" if:
         int source_ready = (st == FETCH)                         //- we're at FETCH (special producer)
@@ -2960,7 +2979,7 @@ int Stage(int st)
             int dest_free = (dst[di].delay == DEST_FREE_DELAY) || (st >= MAX_STAGE - 1);
 //LOOP!            int dest_free = (dst[di].delay == DEST_FREE_DELAY) || (st >= MAX_STAGE - 1) ||st == ISSUE;
             if (!dest_free) {
-printf("\nBUNG!\n");
+if (debug > 2) printf("\nNO-DST-FREE\n");
                 action_rc = -3;
                 continue; //no avail slot: go check next slot
             }
@@ -3059,6 +3078,7 @@ if (debug > 1) printf("  fup1=%08X st=%s STAGE_DELAY[st]=%d\n", ip0->fup1, STAGE
             if (st == ISSUE && ip0->optype == L_FU) { ++ISSUEDLOADS;  }
             if (st == ISSUE && ip0->optype == S_FU) { ++ISSUEDSTORES; }
             if (st == COMPLETE) { ++COMPLETEDINSTR; }
+            if (st == ISSUE) { ++ISSUEDINSTR; }
 
 
             //-------------------------------------------------------------------------------------
