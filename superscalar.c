@@ -1029,6 +1029,27 @@ void Complete_STAGE(void) {
 }
 
 /*---------------------------------------------------------------------------*
+ NAME      : dump_stage_buffer
+ PURPOSE   : print stage buffer content for debugging purpose
+ PARAMETERS:
+ RETURN    :
+ *---------------------------------------------------------------------------*/
+void dump_stage_buffer(int st)
+{
+    char aux[20];
+
+    printf("\nMINIMAP START %s (STAGE_LAST[st]=%d) =============================\n", STAGE_NAME[st], STAGE_LAST[st]);
+    InstructionSlot *sp = STAGE_BUF[st];
+    for (int k = 0; k < STAGE_SIZ[st]; ++k) {
+        Instruction *sip = sp[k].ip;
+        int sid = sp[k].delay;
+        strcpy(aux, "NULL");
+        if (sip) sprintf(aux, "%s/%03d", OPNAME[sip->opcode], sip->CIC);
+        printf("%s[%d].ip.d=%s.%d ", STAGE_ACR[st], k, aux, sid);
+    } printf("\nMINIMAP END %s =================================\n", STAGE_NAME[st]);
+}
+
+/*---------------------------------------------------------------------------*
  NAME      : InsertIntoStageBuffer
  PURPOSE   : Insert an instruction in the stage buffers
  PARAMETERS:
@@ -2613,6 +2634,7 @@ int DISPATCH_END(Instruction *ipdummy)
     }
 
     if (debug) Display("--DISPATCH_END: freed %d P slots", freed);
+    dump_stage_buffer(DISPATCH);
 
 
     return(0);
@@ -2639,6 +2661,7 @@ int ISSUE_END(Instruction *ipdummy)
 //        if (RB[IW[k].ip->robn].cplt1 && IW[k].ip->wblat > 0 ) { (IW[k].ip->wblat)--; }
     }
 
+    dump_stage_buffer(DISPATCH);
     ReorderXstage(ISSUE);
 
    /* Model pipelining by freeing FUs at the end of stage */
@@ -2664,37 +2687,37 @@ int ISSUE_END(Instruction *ipdummy)
         }
     }
 
-    // Scan issue-stage-buffers
-   for (k = 0; k < STAGE_SIZ[ISSUE]; ++k) {
-      if (debug) { NEEDLN = 1; printf("  ISSUE_END: I[%d]: ", k); }
-      ip = sbp[k].ip;
-      if (ip != NULL) {
+    // 
+    for (k = 0; k < STAGE_SIZ[ISSUE]; ++k) { // Scan issue-stage-buffers
+        if (debug) { NEEDLN = 1; printf("  ISSUE_END: I[%d]: ", k); }
+        ip = sbp[k].ip;
+        if (ip != NULL) {
             
-         if (ip->skipnextstage == 2) { ip->skipnextstage = 0; }
-         if (ip->skipnextstage == 1) { ip->skipnextstage = 2; }
-/*
-         if (ip->skipnextstage == 3) { ip->skipnextstage = 1; }
-         if (ip->optype != S_FU && ip->skipnextstage == 1) { ip->skipnextstage = 2; }
-         if (ip->optype == S_FU && ip->skipnextstage == 1) { ip->skipnextstage = 3; }
-*/
-         if (debug) { NEEDLN = 0; printf("  %4s/%03d d=%d (skip=%d)\n", OPNAME[ip->opcode], ip->CIC, sbp[k].delay, ip->skipnextstage); }
-         if (ip->skipnextstage == 0) { continue; }
+            if (ip->skipnextstage == 2) { ip->skipnextstage = 0; }
+            if (ip->skipnextstage == 1) { ip->skipnextstage = 2; }
+    /*
+            if (ip->skipnextstage == 3) { ip->skipnextstage = 1; }
+            if (ip->optype != S_FU && ip->skipnextstage == 1) { ip->skipnextstage = 2; }
+            if (ip->optype == S_FU && ip->skipnextstage == 1) { ip->skipnextstage = 3; }
+    */
+            if (debug) { NEEDLN = 0; printf("  %4s/%03d d=%d (skip=%d)\n", OPNAME[ip->opcode], ip->CIC, sbp[k].delay, ip->skipnextstage); }
+            if (ip->skipnextstage == 0) { continue; }
 
-            // Pipelined FU implementation: release the FU right after the issue
-//            if (ip->fup != NULL) {
+                // Pipelined FU implementation: release the FU right after the issue
+    //           if (ip->fup != NULL) {
                 if (ip->optype == M_FU || ip->optype == D_FU || ip->optype == A_FU) {
                     if (FA[ip->optype].pipe && sbp[k].delay == 1) ReleaseFU(ip);
                 } else {
                     if (sbp[k].delay == 1) ReleaseFU(ip);
                 }
-//            }
-//         if (sbp[k].delay == 1) ReleaseFU(ip);
+    //         }
+    //         if (sbp[k].delay == 1) ReleaseFU(ip);
 
-         if (sbp[k].delay == 2 && ip->optype == L_FU) ReleaseFU(ip);
-         if (!STOREWAITS) if (sbp[k].delay == 2 && ip->optype == S_FU) ReleaseFU(ip);
-      }
-      dbgln("");
-   }
+            if (sbp[k].delay == 2 && ip->optype == L_FU) ReleaseFU(ip);
+            if (!STOREWAITS) if (sbp[k].delay == 2 && ip->optype == S_FU) ReleaseFU(ip);
+        }
+        dbgln("");
+    }
 
     // For ALL completed instructions: release the correspomding FU
     for (int k = 0; k < AA.rob_size; ++k) { // Scan all completed ROB entries
@@ -2711,27 +2734,6 @@ int ISSUE_END(Instruction *ipdummy)
     ISSUEDINSTR = 0;
 // ReleaseFU(ip);
    return(0);
-}
-
-/*---------------------------------------------------------------------------*
- NAME      : dump_stage_buffer
- PURPOSE   : print stage buffer content for debugging purpose
- PARAMETERS:
- RETURN    :
- *---------------------------------------------------------------------------*/
-void dump_stage_buffer(int st)
-{
-    char aux[20];
-
-    printf("\nMINIMAP START %s (STAGE_LAST[st]=%d) =============================\n", STAGE_NAME[st], STAGE_LAST[st]);
-    InstructionSlot *sp = STAGE_BUF[st];
-    for (int k = 0; k < STAGE_SIZ[st]; ++k) {
-        Instruction *sip = sp[k].ip;
-        int sid = sp[k].delay;
-        strcpy(aux, "NULL");
-        if (sip) sprintf(aux, "%s/%03d", OPNAME[sip->opcode], sip->CIC);
-        printf("%s[%d].ip.d=%s.%d ", STAGE_ACR[st], k, aux, sid);
-    } printf("\nMINIMAP END %s =================================\n", STAGE_NAME[st]);
 }
 
 /*---------------------------------------------------------------------------*
@@ -2993,10 +2995,10 @@ if (debug > 2) printf("\nNO-DST-FREE\n");
             if (debug) { if (ip_dst) printf(" FREE %s[%d]", STAGE_ACR[st], di); }
 
 //printf("Hola1\n");fflush(stdout);
+            Instruction *ip0 = NULL, *ip1;
             // Define the pointer to the source instruction
             //  - FETCH creates/reads a new instruction
             //  - other stages pull from src
-            Instruction *ip0 = NULL, *ip1;
             if (!StreamEnd || st != FETCH) ip0 = ip_src;
             if (!StreamEnd && st == FETCH) ip0 = InstructionMemoryRead();
             // COMMIT special case
@@ -3096,6 +3098,7 @@ if (debug > 1) printf("  fup1=%08X st=%s STAGE_DELAY[st]=%d\n", ip0->fup1, STAGE
             Instruction *iptmp = ip0;
             if (src[si].delay == 0) { src[si].ip = NULL; src[si].delay = 0; } // free source slot
 //            if (st == DISPATCH && iptmp->optype == B_FU) { stage_end = 1; break; } // destination loop
+            if (st == DISPATCH && iptmp->optype == B_FU) { stop_after = 1; break; } // destination loop
             if (st != COMMIT) break; // destination loop
         } // (for k) end for each destination slot
         if (debug) if (foundtransfers) dbgln(""); // dbgln("ciao");
