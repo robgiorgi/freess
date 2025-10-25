@@ -15,14 +15,19 @@ out2="$tmpfile"
 for t in $tests; do
    echo -n "* Testing $t"
    ./run-$t.sh -s yes $* |extractcycles.sh > $tmpfile
-   out1="$t.cycles"
-   outd=`diff $out1 $out2`
-   if [ -z "$outd" ]; then
-      echo " --> OK"
+   if [ -s "$tmpfile" ]; then
+      out1="$t.cycles"
+      outd=`diff $out1 $out2`
+      if [ -z "$outd" ]; then
+         echo " --> OK"
+      else
+         echo ": (diff OLD vs NEW)"
+         echo "======================"
+         echo "$outd"
+         echo "======================"
+      fi
    else
-      echo ": (diff OLD vs NEW)"
-      echo "======================"
-      echo "$outd"
-      echo "======================"
+      echo
+      echo "  ERROR"
    fi
 done

@@ -135,6 +135,7 @@ typedef struct InstructionTAG {
    int waiting;
    FUnit *fup;
    FUnit *fup1;
+    int  inilatency;
    int qi;
    int cj;
    int ck;
@@ -1252,18 +1253,17 @@ int CheckSQ()
 //int TryPushLQ(Instruction *ip)
 int TryPushLQ(void)
 {
-   int ec = 0;
-   CheckLQ();
+    int flag = CheckLQ();
 
-//printf("LQFull=%d",LQFull);
-   ec = LQFull;
+    if (debug > 3) printf("LQFull=%d   flag=%d\n", LQFull, flag);
+    int ec = LQFull;
 
 //   ec = PushLQ(ip);
 //   if (ec) {
 //      ExitProg("Load Queue FULL! (stall not implemented: increase the queue size)");
 //      //TODO: stall in case of full LQ
 //   }
-   return (ec);
+    return (ec);
 }
 
 /*---------------------------------------------------------------------------*
@@ -1275,18 +1275,17 @@ int TryPushLQ(void)
 //int TryPushSQ(Instruction *ip)
 int TryPushSQ(void)
 {
-   int ec = 0;
-   CheckSQ();
+    int flag = CheckSQ();
 
-//printf("SQFull=%d",SQFull);
-   ec = SQFull;
+    if (debug >3) printf("SQFull=%d   flag=%d\n", SQFull, flag);
+    int ec = SQFull;
 
 //   ec = PushSQ(ip);
 //   if (ec) {
 //      ExitProg("Store Queue FULL! (stall not implemented: increase the queue size)");
 //      //TODO: stall in case of full SQ
 //   }
-   return (ec);
+    return (ec);
 }
 
 /*---------------------------------------------------------------------------*
@@ -1298,13 +1297,13 @@ int TryPushSQ(void)
 int CheckFU(Instruction *ip)
 {
    int k, t, t1 = ip->optype, found = 0;
-   char aux[SCREENWIDTH+20];
 
     // Implement Unified LSU
     if (t1 == S_FU && AA.uni_lsu) t = L_FU; else t = t1;
 
    for (k = 1; k <= FA[t].tot; ++k) {
-//printf("t=%d   t1=%d    %s\n",t, t1, FUNAME[t]);
+   if (debug > 3 && t1 == L_FU) printf("t=%d   t1=%d    %s busy1=%d  size=%d/%d\n",t, t1, FUNAME[t1], FA[t1].FU[k].busy1, LQElems, AA.lqsize);
+   if (debug > 3 && t1 == S_FU) printf("t=%d   t1=%d    %s busy1=%d  size=%d/%d\n",t, t1, FUNAME[t1], FA[t1].FU[k].busy1, SQElems, AA.sqsize);
       if (t1 == L_FU) if (TryPushLQ()) continue; //continue if LQ full
       if (t1 == S_FU) if (TryPushSQ()) continue; //continue if SQ full
       if (FA[t].FU[k].busy1 == 0) {
@@ -1313,11 +1312,15 @@ int CheckFU(Instruction *ip)
       }
    }
 //printf("found=%d\n",found);
-//   if (!found) ++(FA[t].stalls);
-   sprintf(aux, "no %s-unit available for %s/%03d", FUNAME[t1], OPNAME[ip->opcode], ip->CIC);
-   if (!found) LogStall(&(FA[t1].stalls), aux);
+    if (!found) {
+        ++(FA[t].stalls);
+        if (debug > 2) printf("no %s-unit available for %s/%03d\n", FUNAME[t1], OPNAME[ip->opcode], ip->CIC);
+        char aux[SCREENWIDTH+20];
+        sprintf(aux, "no %s-unit available for %s/%03d", FUNAME[t1], OPNAME[ip->opcode], ip->CIC);
+        LogStall(&(FA[t1].stalls), aux);
+    }
 
-   return (found);
+    return (found);
 }
 
 /*---------------------------------------------------------------------------*
@@ -1330,9 +1333,10 @@ FUnit *GetFU(Instruction *ip, int fn)
 {
    int k, t = ip->optype;
    if (t == S_FU && AA.uni_lsu) t = L_FU;
-   if (verbose) printf("  - GetFU: FA[%s].FU[%d] for %s/%03d\n", FUNAME[t], fn, OPNAME[ip->opcode], ip->CIC);
+   if (debug) printf("  - GetFU: FA[%s].FU[%d] for %s/%03d\n", FUNAME[t], fn, OPNAME[ip->opcode], ip->CIC);
 
    FA[t].FU[fn].busy1 = 1;
+    ip->inilatency = FA[t].FU[fn].inilatency;
    ++(FA[t].busy2);
    FA[t].FU[fn].ip = ip;
 //printf("%08X\n", ip);
@@ -1368,8 +1372,11 @@ int ReleaseFU(Instruction *ip)
             if (ful->busy1 == 1) {
                if (verbose) { nldone = 0; printf(", %d:%4s/%03d", j, OPNAME[fu->ip->opcode], fu->ip->CIC); }
 //if (!STOREWAITS) {
+/*
                if ((ful->ip)->store == 1) { nldone = 1; if (verbose) printf("\n"); full = PushSQ(ful->ip); }
                if ((ful->ip)->store == 0) { nldone = 1; if (verbose) printf("\n"); full = PushLQ(ful->ip); }
+*/
+full = 0; //now the fu for L and S just calculates the EFAD
 //               nldone = 1; printf("\n"); full = PushLQ(ful->ip);
                if (!full) {
                   ful->busy1 = 0;
@@ -1384,8 +1391,11 @@ int ReleaseFU(Instruction *ip)
             if (ful->busy1 == 1) {
                if (verbose) { nldone = 0; printf(", %d:%4s/%03d", j, OPNAME[fu->ip->opcode], fu->ip->CIC); }
 //if (!STOREWAITS) {
+/*
                if ((ful->ip)->store == 1) { nldone = 1; if (verbose) printf("\n"); full = PushSQ(ful->ip); }
                if ((ful->ip)->store == 0) { nldone = 1; if (verbose) printf("\n"); full = PushLQ(ful->ip); }
+*/
+full = 0; //now the fu for L and S just calculates the EFAD
 //               nldone = 1; printf("\n"); full = PushSQ(ful->ip);
                if (!full) {
                   ful->busy1 = 0;
@@ -2012,6 +2022,71 @@ int DISPATCH_DO(Instruction *ip)
 }
 
 /*---------------------------------------------------------------------------*
+ NAME      : X1_DO
+ PURPOSE   : Do First Execute stage
+ PARAMETERS:
+ RETURN    :
+ *---------------------------------------------------------------------------*/
+int X1_DO(Instruction *ip)
+{
+    int flag = 1; u32 efad;
+    
+    //
+    if (debug) printf("  in X1_DO: %4s/%03d  fup1=%08X\n", OPNAME[ip->opcode], ip->CIC, ip->fup1);
+
+
+    //
+    ip->fup = ip->fup1;
+
+    /* do actual operation*/
+    switch (ip->opcode) {
+        case BNE: case BEQ:
+            if (! AA.speculation && StreamEnd == 2) StreamEnd = 0;
+            break;
+        case MUL:
+            RM[ip->pd].vi = RM[ip->ps1].vi * RM[ip->ps2].vi;
+            break;
+        case DIV:
+            if (RM[ip->ps2].vi == 0) RM[ip->ps2].vi = 1; // temp PATCH
+            RM[ip->pd].vi = RM[ip->ps1].vi / RM[ip->ps2].vi;
+            break;
+        case ADD:
+            RM[ip->pd].vi = RM[ip->ps1].vi + RM[ip->ps2].vi;
+            break;
+        case ADDI:
+            RM[ip->pd].vi = RM[ip->ps1].vi + ip->ps3;
+            break;
+        case LOAD:
+            efad = RM[ip->ps1].vi + ip->ps3; ip->efad = efad;
+//Display("L efad=%08X  -- P%d P%d x%d x%d %08X  %08X",efad,ip->ps1,ip->ps2,RM[ip->ps1].qi,RM[ip->ps2].qi,RM[ip->ps1].vi,RM[ip->ps2].vi);
+            PushLQ(ip);
+            break;
+        case STORE:
+            efad = RM[ip->ps2].vi + ip->ps3; ip->efad = efad;
+            PushSQ(ip);
+            break;
+        case LOAD2:
+            efad = RM[ip->ps1].vi + RM[ip->ps2].vi; ip->efad = efad;
+//Display("L efad=%08X  -- P%d P%d x%d x%d %08X  %08X",efad,ip->ps1,ip->ps2,RM[ip->ps1].qi,RM[ip->ps2].qi,RM[ip->ps1].vi,RM[ip->ps2].vi);
+            PushLQ(ip);
+            break;
+        case STORE2:
+            efad = RM[ip->ps1].vi + RM[ip->ps2].vi; ip->efad = efad;
+            PushSQ(ip);
+            break;
+        case NOP:
+        default:
+            ip->fup = ip->fup1; flag = 1;
+            break;
+    }
+    if (debug) {
+        printf("* X1_DO: %4s/%03d flag=%d pd=%d\n", OPNAME[ip->opcode], ip->CIC, flag, ip->pd);
+    }
+
+    return (flag);
+}
+
+/*---------------------------------------------------------------------------*
  NAME      : IsIWEntryReady
  PURPOSE   : Check if an IW entry is ready
  PARAMETERS:
@@ -2116,10 +2191,12 @@ int IssueIWEntry(Instruction **ipp)
                             }
                         }
 */
-    if (debug) {
-        NEEDLN = 1; printf("    --> IssueIWEntry #%02d: ip 0x%lX %s/%03d qj %d qk %d ql %d wait=%d prevwblat=%d flag=%d\n",\
-                    k, ip, OPNAME[ip->opcode], ip->CIC, IW[k].qj, IW[k].qk, IW[k].ql, ip->waiting, prevwblat, flag);
-    }
+                        if (debug) {
+                            NEEDLN = 0; 
+                            printf("    --> IssueIWEntry #%02d: ip 0x%lX %s/%03d qj %d qk %d ql %d"\
+                                   " wait=%d prevwblat=%d flag=%d\n", k, ip, OPNAME[ip->opcode],
+                                   ip->CIC, IW[k].qj, IW[k].qk, IW[k].ql, ip->waiting, prevwblat, flag);
+                        }
 
 // printf("IIWE::flag=%d\n", flag);
                         // Try to assign a FU
@@ -2147,9 +2224,12 @@ int IssueIWEntry(Instruction **ipp)
     if (ipfound) {
         ipfound->fup1 = GetFU(ipfound, fnfound);
         if (ipfound->fup1 == NULL) { flag = -1; }
-        iwrel = ipfound->winn;
-        ReleaseIWEntry(ipfound, iwrel);
-        flag = 1;
+        else  {
+            X1_DO(ipfound); 
+            iwrel = ipfound->winn;
+            ReleaseIWEntry(ipfound, iwrel);
+            flag = 1;
+        }
     }
 
     // Return whatever ip we have assigned here
@@ -2157,7 +2237,7 @@ int IssueIWEntry(Instruction **ipp)
     *ipp = ipfound;
 
     if (debug) {
-        dbgln(""); printf("  ==> IssueIWEntry:: flag=%d iwall=%d ip=%08X iwrel=%d", flag, iwall, ip, iwrel);
+        dbgln(""); printf("  ==> IssueIWEntry:: flag=%d iwall=%d ip=%08X iwrel=%d", flag, iwall, ipfound, iwrel);
         if (ipfound) printf("%4s/%03d\n",OPNAME[ipfound->opcode], ipfound->CIC); else printf("\n");
     }
 
@@ -2174,7 +2254,7 @@ if (ip->issued) {
                     int opt = ip->optype;
                     if (opt!= B_FU && opt != S_FU) {
                         if (FA[opt].rsallocated > 0) --(FA[opt].rsallocated); // B and S already deallocated in ISSUE
-                        if (debug > 2) printf("  - deallocated RS for %s/%03d rsallocated(%s)=%d\n", OPNAME[ip->opcode], ip->CIC, FUNAME[opt], FA[opt].rsallocated);
+                        if (debug > 2) printf("  - (I-PRE) deallocated RS for %s/%03d rsallocated(%s)=%d\n", OPNAME[ip->opcode], ip->CIC, FUNAME[opt], FA[opt].rsallocated);
                     }
 }
                 }
@@ -2182,7 +2262,7 @@ if (ip->issued) {
         }
     }
     return (flag);
-}
+} // IssueIWEntry
 
 /*---------------------------------------------------------------------------*
  NAME      : ISSUE_DO
@@ -2307,14 +2387,13 @@ int DataMemCollision(Instruction *ip)
 
 /*---------------------------------------------------------------------------*
  NAME      : EXECUTE_DO
- PURPOSE   : Execute the Execute stage
+ PURPOSE   : Do the Execute stage
  PARAMETERS:
  RETURN    :
  *---------------------------------------------------------------------------*/
 int EXECUTE_DO(Instruction *ip)
 {
-   u32 efad;
-   int flag = 0, t = ip->optype;
+    int flag = 1;
 
     // DEBUG INFO
     if (debug) { 
@@ -2328,45 +2407,18 @@ int EXECUTE_DO(Instruction *ip)
         printf("  in EXECUTE: %4s/%03d  fup1=%s\n", OPNAME[ip->opcode], ip->CIC, aux);
     }
 
-   /* do actual operation*/
-   switch (ip->opcode) {
-      case BNE: case BEQ:
-         ip->fup = ip->fup1; flag = 1;
-         if (! AA.speculation && StreamEnd == 2) StreamEnd = 0;
-         break;
-      case MUL:
-         RM[ip->pd].vi = RM[ip->ps1].vi * RM[ip->ps2].vi;
-         ip->fup = ip->fup1; flag = 1;
-         break;
-      case DIV:
-         if (RM[ip->ps2].vi == 0) RM[ip->ps2].vi = 1; // temp PATCH
-         RM[ip->pd].vi = RM[ip->ps1].vi / RM[ip->ps2].vi;
-         ip->fup = ip->fup1; flag = 1;
-         break;
-      case ADD:
-         RM[ip->pd].vi = RM[ip->ps1].vi + RM[ip->ps2].vi;
-         ip->fup = ip->fup1; flag = 1;
-         break;
-      case ADDI:
-         RM[ip->pd].vi = RM[ip->ps1].vi + ip->ps3;
-         ip->fup = ip->fup1; flag = 1;
-         break;
-      case LOAD:
-         if (debug > 2) printf("MEMBUSY=%d\n",MEMBUSY);
-         if (MEMBUSY) { flag = -7; break; }
-         MEMBUSY = 1;
-         efad = RM[ip->ps1].vi + ip->ps3;
-         ip->efad = efad;
-//Display("L efad=%08X",efad);
-         ip->fup = ip->fup1; flag = 1;
-        break;
-      case STORE:
-         if (debug > 2) printf("MEMBUSY=%d\n",MEMBUSY);
-        if (MEMBUSY) { flag = -7; break; }
-//         ea = RM[ip->ps1].vi + ip->ps2;
-         efad = RM[ip->ps2].vi + ip->ps3;
-         ip->efad = efad;
-         if (debug == 3) Display("  S efad=%08X STOREWAITS=%d  qi=%d skipnextstage=%d", efad, STOREWAITS, ip->qi, ip->skipnextstage);
+    /* do actual operation*/
+    switch (ip->opcode) {
+        case LOAD:
+            if (debug > 2) printf("MEMBUSY=%d\n",MEMBUSY);
+            if (MEMBUSY) { flag = -7; break; }
+            PopLQ();
+            MEMBUSY = 1;
+            break;
+        case STORE:
+            if (debug > 2) printf("MEMBUSY=%d\n",MEMBUSY);
+            if (MEMBUSY) { flag = -7; break; }
+            if (debug == 3) Display("  S efad=%08X STOREWAITS=%d  qi=%d skipnextstage=%d", ip->efad, STOREWAITS, ip->qi, ip->skipnextstage);
 //            if (!STOREWAITS || (STOREWAITS && ip->qi == 0)) {
 //            if (ip->qi == 0) {
             if (ip->qi == 0 && ip->wblat == 0) {
@@ -2374,25 +2426,21 @@ int EXECUTE_DO(Instruction *ip)
                 if (ip->skipnextstage == 2) { ip->skipnextstage = 0; ip->fup = ip->fup1; flag = 1; } 
                 if (ip->skipnextstage == 1) ip->skipnextstage = 2;
 */
-                ip->fup = ip->fup1; flag = 1;
                 MEMBUSY = 1;
+            } else flag = 0;
+            if (ip->qi == 0) {
+                if (SQ[SQHead]->wblat == 0) { PopSQ(); }
+                else SQ[SQHead]->wblat--;
             }
+            break;
+        case LOAD2:
+           if (MEMBUSY) { flag = -7; break; }
+            PopLQ();
+            MEMBUSY = 1;
          break;
-      case LOAD2:
-         if (MEMBUSY) { flag = -7; break; }
-         MEMBUSY = 1;
-         efad = RM[ip->ps1].vi + RM[ip->ps2].vi;
-         ip->efad = efad;
-//Display("L efad=%08X  -- P%d P%d x%d x%d %08X  %08X",efad,ip->ps1,ip->ps2,RM[ip->ps1].qi,RM[ip->ps2].qi,RM[ip->ps1].vi,RM[ip->ps2].vi);
-         ip->fup = ip->fup1; flag = 1;
-         break;
-      case STORE2:
-         if (MEMBUSY) { flag = -7; break; }
-//         efad = RM[ip->ps2].vi + RM[ip->ps2].vi;
-//         efad = RM[ip->ps2].vi + RM[ip->ps3].vi;
-         efad = RM[ip->ps1].vi + RM[ip->ps2].vi;
-         ip->efad = efad;
-         if (debug == 3) Display("  S2 efad=%08X STOREWAITS=%d  qi=%d skipnextstage=%d", efad, STOREWAITS, ip->qi, ip->skipnextstage);
+        case STORE2:
+            if (MEMBUSY) { flag = -7; break; }
+            if (debug == 3) Display("  S2 efad=%08X STOREWAITS=%d  qi=%d skipnextstage=%d", ip->efad, STOREWAITS, ip->qi, ip->skipnextstage);
 //            if (!STOREWAITS || (STOREWAITS && ip->qi == 0)) {
             if (ip->qi == 0 && ip->wblat == 0) {
 //                if (!STOREWAITS) {
@@ -2401,18 +2449,20 @@ int EXECUTE_DO(Instruction *ip)
                 if (ip->skipnextstage == 1) ip->skipnextstage = 2;
 */
                 MEMBUSY = 1;
+            } else flag = 0;
+            if (ip->qi == 0) {
+                if (SQ[SQHead]->wblat == 0) { PopSQ(); }
+                else SQ[SQHead]->wblat--;
             }
-         break;
-      case NOP:
-      default:
-         ip->fup = ip->fup1; flag = 1;
-         break;
-   }
+            break;
+        default:
+            break;
+    }
 
-   if (verbose) {
-      printf("* EXECUTE: %4s/%03d flag=%d MEMBUSY=%d winn=%d robn=%d pd=%d\n", OPNAME[ip->opcode], ip->CIC, flag, MEMBUSY, ip->winn, ip->robn, ip->pd);
-   }
-   return (flag);
+    if (debug) {
+        printf("* EXECUTE: %4s/%03d flag=%d MEMBUSY=%d winn=%d robn=%d wblat=%d\n", OPNAME[ip->opcode], ip->CIC, flag, MEMBUSY, ip->winn, ip->robn, ip->wblat);
+    }
+    return (flag);
 }
 
 /*---------------------------------------------------------------------------*
@@ -2625,8 +2675,9 @@ int DISPATCH_END(Instruction *ipdummy)
         // In case of Tomasulo: the IWEntry has been already dellaocated: here, just update the rsallocated count
                     int opt = ip->optype;
                     if (opt!= B_FU && opt != S_FU) {
-                        --(FA[opt].rsallocated); // B and S already deallocated in ISSUE
-                        if (debug > 2) printf("  - deallocated RS for %s/%03d\n", OPNAME[ip->opcode], ip->CIC);
+                        if (FA[opt].rsallocated > 0) --(FA[opt].rsallocated); // B and S already deallocated in ISSUE
+                        if (debug > 2) printf("  - (P) deallocated RS for %s/%03d rsallocated(%s)=%d\n", OPNAME[ip->opcode], ip->CIC, FUNAME[opt], FA[opt].rsallocated);
+
                     }
                 }
             }
@@ -2703,15 +2754,15 @@ int ISSUE_END(Instruction *ipdummy)
             if (debug) { NEEDLN = 0; printf("  %4s/%03d d=%d (skip=%d)\n", OPNAME[ip->opcode], ip->CIC, sbp[k].delay, ip->skipnextstage); }
             if (ip->skipnextstage == 0) { continue; }
 
-                // Pipelined FU implementation: release the FU right after the issue
-    //           if (ip->fup != NULL) {
-                if (ip->optype == M_FU || ip->optype == D_FU || ip->optype == A_FU) {
-                    if (FA[ip->optype].pipe && sbp[k].delay == 1) ReleaseFU(ip);
-                } else {
-                    if (sbp[k].delay == 1) ReleaseFU(ip);
-                }
-    //         }
-    //         if (sbp[k].delay == 1) ReleaseFU(ip);
+            // Pipelined FU implementation: release the FU right after the issue
+//           if (ip->fup != NULL) {
+            if (ip->optype == M_FU || ip->optype == D_FU || ip->optype == A_FU) {
+                if (FA[ip->optype].pipe && sbp[k].delay == 1) ReleaseFU(ip);
+            } else { // L_FU, S_FU
+                if (sbp[k].delay == 1) ReleaseFU(ip);
+            }
+//         }
+//         if (sbp[k].delay == 1) ReleaseFU(ip);
 
             if (sbp[k].delay == 2 && ip->optype == L_FU) ReleaseFU(ip);
             if (!STOREWAITS) if (sbp[k].delay == 2 && ip->optype == S_FU) ReleaseFU(ip);
@@ -2802,6 +2853,7 @@ int EXECUTE_END(Instruction *ipdummy)
     if (!SQEmpty) if (SQ[SQHead]->qi ==  0) { dbgln(""); PopSQ(); }
     dbgln("");
 */
+/*
     if (debug) { dbgln(""); printf("--EXECUTE_END:"); }
     if (!LQEmpty) if (LQ[LQHead]->qi ==  0) { dbgln(""); PopLQ(); }
     if (!SQEmpty) if (SQ[SQHead]->qi ==  0) {
@@ -2809,6 +2861,7 @@ int EXECUTE_END(Instruction *ipdummy)
         else SQ[SQHead]->wblat--;
     }
     dbgln("\n");
+*/
 
 if (debug == 3) dump_stage_buffer(DISPATCH);
 if (debug == 3) dump_stage_buffer(ISSUE);
@@ -3053,6 +3106,10 @@ if (debug > 2) printf("\nNO-DST-FREE\n");
                 } else {
                     dst[di].delay = 1;
                 }
+//                if (st == ISSUE && ip0->optype != L_FU) dst[di].delay = 1;
+                if (st == ISSUE) dst[di].delay = 1;
+//                if (st == EXECUTE && ip0->optype != L_FU) dst[di].delay = ip0->inilatency;
+                if (st == EXECUTE) dst[di].delay = ip0->inilatency;
 
                 // Bookkeeping
                 ip0->t[st] = CK;      // stage timestamp
@@ -3064,6 +3121,7 @@ if (debug > 1) printf("  fup1=%08X st=%s STAGE_DELAY[st]=%d\n", ip0->fup1, STAGE
 //                if (ip0->fup1 != NULL && st == ISSUE && STAGE_DELAY[st] == 1 &&
                 if (ip0->fup1 != NULL && st == ISSUE && 
                     (ip0->optype == L_FU || ip0->optype == S_FU)) {
+//                    (ip0->optype == S_FU)) {
                     ip0->skipnextstage = 1;
                 }
                 if (ip0->fup1 != NULL && st == EXECUTE && 
