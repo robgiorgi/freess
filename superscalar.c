@@ -390,6 +390,10 @@ static char **LSQCOLUMN;
 #define LOGBFLEN 10000
 char LOGBUF[LOGBFLEN];
 
+// MACROS
+#define INAME(i) (((i) != NULL) ? OPNAME[(i)->opcode] : "FREE")
+#define ICIC(i)  (((i) != NULL) ?(i)->CIC : 0)
+
 /*------------- INTERNAL FUNCTIONS PROTOTYPES -------------------------------*/
 void read_program(char *progname);
 void dump_instruction_program(void);
@@ -1093,7 +1097,7 @@ int InsertIntoStageBuffer(Instruction *ips, int stage)
    int k, found = 0, qfound, flag = 0, start, q, kfull = -1;
 
    // Inserting into STAGE buffer
-   if (debug) printf("  --> INSERTING %s/%03d INTO %s:", OPNAME[ips->opcode], ips->CIC, STAGE_NAME[stage]);
+   if (debug) printf("    --> INSERTING %s/%03d INTO %s:", OPNAME[ips->opcode], ips->CIC, STAGE_NAME[stage]);
 //   if (STAGE_INORDER[stage]) { start = (STAGE_LAST[stage] != -1) ? STAGE_LAST[stage] : 0; }
 
    // Find last full
@@ -1387,9 +1391,6 @@ int ReleaseFU(Instruction *ip)
    int j, t, nldone = 0, full;
    FUnit *fu, *ful;
 
-//   MEMBUSY = 0;
-
-
    if (verbose) printf("  --> ReleaseFU: ");
    if (verbose) if (ip == NULL) { printf("\n"); return (1); }
    t = ip->optype;
@@ -1614,7 +1615,6 @@ void ReleaseIWEntry(Instruction *ip, int wk)
     IW[wk].ip->issued = 1;
 
     // Special case: in Tomasulo, stores and branches are deallocating the RS at ISSUE time
-//    if (G.tomasulo && ip->optype == S_FU) { --(FA[L_FU].rsallocated); MEMBUSY = 0; }
     if (G.tomasulo && ip->optype == S_FU) { --(FA[L_FU].rsallocated); }
     if (G.tomasulo && ip->optype == B_FU) --(FA[B_FU].rsallocated);
 
@@ -2451,14 +2451,14 @@ int MEMACCESS_DO(Instruction *ip)
 
     // DEBUG INFO
     if (debug) { dbgln("");
-        printf("  in MEMACCESS: %4s/%03d MEMBUSY=%d\n", OPNAME[ip->opcode], ip->CIC, MEMBUSY);
+        printf("  in MEMACCESS: %4s/%03d MEMBUSY=%d\n", INAME(ip), ICIC(ip), MEMBUSY);
     }
 
     /* do actual operation*/
     switch (ip->opcode) {
         case LOAD: case LOAD2:
             if (MEMBUSY) { flag = -7; break; }
-            if (debug > 2) Display("  L efad=%08X qi=%d skipnextstage=%d", ip->efad, STOREWAITS, ip->qi, ip->skipnextstage);
+            if (debug > 2) Display("    L efad=%08X qi=%d skipnextstage=%d", ip->efad, STOREWAITS, ip->qi, ip->skipnextstage);
             PopLQ();
             InsertIntoStageBuffer(ip, EXECUTE);
             MEMBUSY = 1;
@@ -2466,7 +2466,7 @@ int MEMACCESS_DO(Instruction *ip)
             break;
         case STORE: case STORE2:
             if (MEMBUSY) { flag = -7; break; }
-            if (debug > 2) Display("  S efad=%08X STOREWAITS=%d  qi=%d wblat=%d skipnextstage=%d", ip->efad, STOREWAITS, ip->qi, ip->wblat, ip->skipnextstage);
+            if (debug > 2) Display("    S efad=%08X STOREWAITS=%d  qi=%d wblat=%d skipnextstage=%d", ip->efad, STOREWAITS, ip->qi, ip->wblat, ip->skipnextstage);
 //            if (!STOREWAITS || (STOREWAITS && ip->qi == 0)) {
 //            if (ip->qi == 0) {
             if (ip->qi == 0 && ip->wblat == 0) {
@@ -2498,6 +2498,29 @@ int MEMACCESS_DO(Instruction *ip)
 }
 
 /*---------------------------------------------------------------------------*
+ NAME      : ReleaseMEM
+ PURPOSE   : ReleaseMEMORY
+ PARAMETERS:
+ RETURN    :
+ *---------------------------------------------------------------------------*/
+void ReleaseMEM(Instruction *ip)
+{
+    if (debug > 2) { dbgln(""); printf("  -->ReleaseMEM: %s/%03d: ", INAME(ip), ICIC(ip)); }
+    if (ip->optype == S_FU) { // it was a store --> complete too
+        if(debug) { dbgln(""); printf("STORE\n"); }
+        RB[ip->robn].cplt = 1;
+        ip->t[COMPLETE] = CK;      // stage timestamp
+        ip->fup   = NULL;    // consumed
+        MEMBUSY = 0;
+        RemoveFromStageBuffer(ip, EXECUTE);
+        ReleaseFU(ip);
+    }
+//    if (ip->optype == L_FU && RB[ip->robn].cplt == 1) { // it was a load --> unlock MEM
+    if (ip->optype == L_FU) { // it was a load --> unlock MEM
+        MEMBUSY = 0;
+    }
+}
+/*---------------------------------------------------------------------------*
  NAME      : EXECUTE_DO
  PURPOSE   : Do the Execute stage
  PARAMETERS:
@@ -2518,9 +2541,6 @@ int EXECUTE_DO(Instruction *ip)
         }
         printf("  in EXECUTE:   %4s/%03d  fup1=%s\n", OPNAME[ip->opcode], ip->CIC, aux);
     }
-
-    // do memory access
-//    flag = MEMACCESS_DO(ip);
 
     if (debug) {
         printf("* EXECUTE:   %4s/%03d MEMBUSY=%d winn=%d robn=%d flag=%d\n", OPNAME[ip->opcode], ip->CIC, MEMBUSY, ip->winn, ip->robn, flag);
@@ -2571,8 +2591,6 @@ int COMPLETE_DO(Instruction *ip)
          }
       }
      dbgln("");
-   }
-   if (ip->store) {
    }
 
    /* Update Store Queue */
@@ -2629,12 +2647,13 @@ printf("RSDEALLOC\n");
     // SET THE COMPLETE-FLAG in the ROB
     RB[ip->robn].cplt = 1;
     RB[ip->robn].cplt1 = 1;
-    if (ip->optype == L_FU || ip->optype == S_FU) MEMBUSY = 0;
+//    if (ip->optype == L_FU || ip->optype == S_FU) MEMBUSY = 0;
+    if (ip->optype == L_FU) ReleaseMEM(ip);
    flag = 1;
 
     dbgln("");
    if (verbose) {
-      printf("* COMPLETE: %4s/%03d flag=%d winn=%d robn=%d pd=%d\n", OPNAME[ip->opcode], ip->CIC, flag, ip->winn, ip->robn, ip->pd);
+      printf("* COMPLETE: %4s/%03d flag=%d winn=%d robn=%d pd=%d MEMBUSY=%d\n", OPNAME[ip->opcode], ip->CIC, flag, ip->winn, ip->robn, ip->pd, MEMBUSY);
    }
 
    return (flag);
@@ -2860,9 +2879,9 @@ int ISSUE_END(Instruction *ipdummy)
  *---------------------------------------------------------------------------*/
 int EXECUTE_END(Instruction *ipdummy)
 {
-   int k, fa, nldone; 
-   Instruction *ip;
-   InstructionSlot *sbp = STAGE_BUF[EXECUTE];
+     int k, fa, nldone; 
+     Instruction *ip;
+     InstructionSlot *sbp = STAGE_BUF[EXECUTE];
 
      if (debug) { dbgln(""); printf("--EXECUTE_END:\n"); }
 
@@ -2964,31 +2983,27 @@ int EXECUTE_END(Instruction *ipdummy)
             }
         }
         if (found_ip) {
-            if (debug >2) printf("  found: %s/%03d issued=%d", OPNAME[found_ip->opcode], found_ip->CIC, found_ip->issued);
+            if (debug >2) { NEEDLN = 1; printf("  found: %s/%03d issued=%d", OPNAME[found_ip->opcode], found_ip->CIC, found_ip->issued); }
 //            if (found_ip->issued && found_ip->optype == L_FU) {
             int memok = 0;
             if ((! found_ip->issued) || found_ip->optype == S_FU) {
                 memok = MEMACCESS_DO(found_ip);
             }
             if (memok == 1 && found_ip->optype == S_FU) { // it was a store --> complete too
-                if(debug) { dbgln(""); printf("STORE\n"); }
-                RB[found_ip->robn].cplt = 1;
-                found_ip->t[COMPLETE] = CK;      // stage timestamp
-                found_ip->fup   = NULL;    // consumed
-                MEMBUSY = 0;
-                RemoveFromStageBuffer(found_ip, EXECUTE);
-                ReleaseFU(found_ip);
+                ReleaseMEM(found_ip);
             }
+            if (debug > 2) printf("  memok=%d MEMBUSY=%d", memok, MEMBUSY);
         } else {
-            if (debug >2) printf("  no L/S found\n");
+            if (debug > 2) printf("  no L/S found");
         }
     }
+    dbgln("");
     // age the loads in the load queue
     if (!LQEmpty) for (int k = LQHead; k <= LQHead + LQElems; ++k) {
         int i = k % AA.lqsize;
         Instruction *ipl = LQ[i];
         if (ipl) if (ipl->issued) ipl->issued = 0;
-        if (debug > 2) if (ipl) printf("ipl %08X %s/%03d issued=%d\n", ipl, OPNAME[ipl->opcode], ipl->CIC, ipl->issued);
+        if (debug > 2) if (ipl) printf("  aging %s/%03d in LQ, issued=%d\n", OPNAME[ipl->opcode], ipl->CIC, ipl->issued);
     }
     // age the stores in the store queue
     if (!SQEmpty) for (int k = SQHead; k <= SQHead + SQElems; ++k) {
@@ -2996,9 +3011,24 @@ int EXECUTE_END(Instruction *ipdummy)
         Instruction *ips = SQ[i];
         if (ips) if (ips->issued) ips->issued = 0;
         if (ips) if (ips->wblat > 0 && ips->qi == 0) ips->wblat--;
-        if (debug > 2) if (ips) printf("ips %08X %s/%03d issued=%d\n", ips, OPNAME[ips->opcode], ips->CIC, ips->issued);
+        if (debug > 2) if (ips) printf("  aging %s/%03d in SQ issued=%d wblat=%d\n", OPNAME[ips->opcode], ips->CIC, ips->issued, ips->wblat);
     }
     
+
+/*
+    // releaseMEM for finished memory operations
+    for (int k = 0; k < TotalFU; ++k) {
+        Instruction *ip = sbp[k].ip;
+        if (ip != NULL) {
+            if (ip->optype == L_FU || ip->optype == S_FU) {
+printf("X[%d]:%s/%03d.d=%d\n", k, INAME(ip), ICIC(ip), sbp[k].delay);
+                if (sbp[k].delay == 1) {
+                    ReleaseMEM(ip);
+                }
+            }
+        }
+    }
+*/
 
 if (debug > 2) dump_load_store_queues();
 if (debug > 2) dump_stage_buffer(DISPATCH);
@@ -3138,14 +3168,16 @@ int Stage(int st)
         if (st != FETCH && src[si].delay > SOURCE_READY_DELAY) { --(src[si].delay); continue; }
 
         //
-        if (st == COMPLETE ) { if (COMPLETEDINSTR == AA.w_width) continue; }
+        if (st == COMPLETE ) { 
+            if (COMPLETEDINSTR == AA.w_width) continue;
+        }
         if (st == ISSUE ) { if (ISSUEDINSTR == AA.i_width) continue; }
 
         // Source is considered "ready" if:
         int source_ready = (st == FETCH)                         //- we're at FETCH (special producer)
                         || (src[si].delay == SOURCE_READY_DELAY) //- OR its delay == 1
                         || (st == COMMIT)                        //- OR we're at commit (look up ROB)
-                        || (st == ISSUE);                        //- OR we're at commit (look up IW)
+                        || (st == ISSUE);                        //- OR we're at issue (look up IW)
         if (!source_ready) { continue; } // Not ready: go check next slot
 
         // Pretty debug (optional)
