@@ -1058,8 +1058,8 @@ void dump_load_store_queues(void)
     for (int k = 0; k < AA.sqsize; ++k) {
         Instruction *ip = SQ[k];
         strcpy(aux, "NULL");
-        if (ip) sprintf(aux, "%s/%03d", OPNAME[ip->opcode], ip->CIC);
-        printf("S[%d].ip=%s ", k, aux);
+        if (ip) sprintf(aux, "%s/%03d.%d", OPNAME[ip->opcode], ip->CIC, ip->qi);
+        printf("S[%d].ip.d=%s ", k, aux);
     }
 
     printf("\nMINIMAP END   (LOAD/STORE QUEUES)\n");
@@ -1618,11 +1618,11 @@ void ReleaseIWEntry(Instruction *ip, int wk)
     IW[wk].ip->issued = 1;
 
     // Special case: in Tomasulo, stores and branches are deallocating the RS at ISSUE time
-    if (G.tomasulo && ip->optype == S_FU) { --(FA[L_FU].rsallocated); }
-    if (G.tomasulo && ip->optype == B_FU) --(FA[B_FU].rsallocated);
+    if (G.tomasulo && ip->optype == S_FU) { if (FA[L_FU].rsallocated > 0) --(FA[L_FU].rsallocated); }
+    if (G.tomasulo && ip->optype == B_FU) { if (FA[B_FU].rsallocated > 0) --(FA[B_FU].rsallocated); }
 
     // Early release of RS
-    if (G.tomasulo && AA.early_rs_rel && ip->optype != S_FU && ip->optype != S_FU) --(FA[ip->optype].rsallocated);
+    if (G.tomasulo && AA.early_rs_rel && ip->optype != S_FU && ip->optype != B_FU) if (FA[ip->optype].rsallocated) --(FA[ip->optype].rsallocated);
 
    --IWAllocated;
    IWFull = 0;
@@ -2460,6 +2460,7 @@ int MEMACCESS_DO(Instruction *ip)
     /* do actual operation*/
     switch (ip->opcode) {
         case LOAD: case LOAD2:
+            if (ip->issued) { ip->issued = 0; flag = -10; break; }
             if (MEMBUSY) { flag = -7; break; }
             if (debug > 2) Display("    L efad=%08X qi=%d skipnextstage=%d", ip->efad, STOREWAITS, ip->qi, ip->skipnextstage);
             PopLQ();
@@ -2468,6 +2469,7 @@ int MEMACCESS_DO(Instruction *ip)
             ip->t[EXECUTE] = CK;      // stage timestamp
             break;
         case STORE: case STORE2:
+            if (ip->issued) { ip->issued = 0; flag = -10; break; }
             if (MEMBUSY) { flag = -7; break; }
             if (debug > 2) Display("    S efad=%08X STOREWAITS=%d  qi=%d wblat=%d skipnextstage=%d", ip->efad, STOREWAITS, ip->qi, ip->wblat, ip->skipnextstage);
 //            if (!STOREWAITS || (STOREWAITS && ip->qi == 0)) {
@@ -2512,7 +2514,7 @@ int ReleaseMEM(Instruction *ip)
     if (debug > 2) { dbgln(""); NEEDLN = 1; printf("  -->ReleaseMEM: %s/%03d: ", INAME(ip), ICIC(ip)); }
     if (! ip->memdone) {
         if (ip->optype == S_FU) { // it was a store --> complete too
-            if(debug > 2) { printf("OK\n"); }
+            if (debug > 2) { printf("OK\n"); }
             RB[ip->robn].cplt = 1;
             ip->t[COMPLETE] = CK;      // stage timestamp
             ip->fup   = NULL;    // consumed
@@ -2524,13 +2526,13 @@ int ReleaseMEM(Instruction *ip)
         }
     //    if (ip->optype == L_FU && RB[ip->robn].cplt == 1) { // it was a load --> unlock MEM
         if (ip->optype == L_FU) { // it was a load --> unlock MEM
-            if(debug > 2) { printf("OK\n"); }
+            if (debug > 2) { printf("OK\n"); }
             MEMBUSY = 0;
             ip->memdone = 1;
             flag = 1;
         }
     } else {
-        printf(" already done! (waiting for CDB)");
+        if (debug > 2) printf(" already done! (waiting for CDB)");
         flag = -9; //waiting for CDB
     }
     dbgln("");
@@ -3008,6 +3010,12 @@ int EXECUTE_END(Instruction *ipdummy)
             if (memok == 1 && found_ip->optype == S_FU) { // it was a store --> complete too
 //                ReleaseMEM(found_ip);
             }
+
+            // Try the other one too
+            if (!memok && found_ip->optype == S_FU && readyloads   > 0) MEMACCESS_DO(LQ[LQHead]);
+            if (!memok && found_ip->optype == L_FU && readystores  > 0) MEMACCESS_DO(SQ[SQHead]);
+
+
             if (debug > 2) printf("  memok=%d MEMBUSY=%d", memok, MEMBUSY);
         } else {
             if (debug > 2) printf("  no L/S found");
@@ -3036,7 +3044,7 @@ int EXECUTE_END(Instruction *ipdummy)
         Instruction *ip = sbp[k].ip;
         if (ip != NULL) {
             if (ip->optype == L_FU || ip->optype == S_FU) {
-printf("X[%d]:%s/%03d.d=%d\n", k, INAME(ip), ICIC(ip), sbp[k].delay);
+if (debug > 3) printf("X[%d]:%s/%03d.d=%d\n", k, INAME(ip), ICIC(ip), sbp[k].delay);
                 if (sbp[k].delay == 1) {
                     ReleaseMEM(ip);
                 }
@@ -3182,9 +3190,7 @@ int Stage(int st)
         if (st != FETCH && src[si].delay > SOURCE_READY_DELAY) { --(src[si].delay); continue; }
 
         //
-        if (st == COMPLETE ) { 
-            if (COMPLETEDINSTR == AA.w_width) continue;
-        }
+        if (st == COMPLETE ) { if (COMPLETEDINSTR == AA.w_width) continue; }
         if (st == ISSUE ) { if (ISSUEDINSTR == AA.i_width) continue; }
 
         // Source is considered "ready" if:

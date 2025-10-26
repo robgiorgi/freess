@@ -22,6 +22,6 @@ EOF
 
 
 
-cmd="./freess -exe $testprog -pw 8 -wins 10 -pregs 8 -robs 20 -lqs 3 -sqs 3 -llat 5 -afu 1 -dlat 15 -dpipe no -dfu 1 -mfu 1 -mlat 4 -mpipe no -stck -1 -wblat 1 -cw 1 -ww 1 -dw 3 -fw 3 -pw 3 -ioi no -ioc no -slat 1 -wins 30 -preg 30 -spec yes -iw 1 -swaits yes -tom yes -lsrs 2 -brs 2 -ars 2 -mrs 2 -drs 2 -loadpri yes -iter 4 -rsrel yes $*"
+cmd="./freess -exe $testprog -pw 8 -wins 10 -pregs 8 -robs 20 -lqs 3 -sqs 3 -llat 2 -afu 1 -dlat 15 -dpipe no -dfu 1 -mfu 1 -mlat 2 -mpipe no -stck -1 -wblat 1 -cw 1 -ww 1 -dw 2 -fw 2 -pw 2 -ioi no -ioc no -slat 1 -wins 30 -preg 30 -spec yes -iw 1 -swaits yes -tom yes -lsrs 2 -brs 2 -ars 2 -mrs 2 -drs 2 -loadpri yes -iter 4 -rsrel yes $*"
 echo "$cmd"
 $cmd
