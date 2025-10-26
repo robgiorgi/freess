@@ -1120,7 +1120,7 @@ int InsertIntoStageBuffer(Instruction *ips, int stage)
 //      islot[qfound].delay = 1 +AA.wblat; //tentative value: how about ip.delay ? --> makes sim stuck!
       flag = 1;
       if (STAGE_INORDER[stage]) STAGE_LAST[stage] = (qfound + 1) % STAGE_SIZ[stage]; //update head
-      if (debug) printf(" slot %d", qfound);
+      if (debug) printf(" slot %s[%d] stage-delay=%d", STAGE_ACR[stage], qfound, islot[qfound].delay);
    } else {
       if (debug) printf(" ---- all slots busy");
    }
@@ -2450,22 +2450,23 @@ int MEMACCESS_DO(Instruction *ip)
     int flag = 1;
 
     // DEBUG INFO
-    if (debug) printf("  in MEMACCESS: %4s/%03d MEMBUSY=%d\n", OPNAME[ip->opcode], ip->CIC, MEMBUSY);
+    if (debug) { dbgln("");
+        printf("  in MEMACCESS: %4s/%03d MEMBUSY=%d\n", OPNAME[ip->opcode], ip->CIC, MEMBUSY);
+    }
 
     /* do actual operation*/
     switch (ip->opcode) {
         case LOAD: case LOAD2:
-            if (debug > 2) printf("MEMBUSY=%d\n",MEMBUSY);
             if (MEMBUSY) { flag = -7; break; }
+            if (debug > 2) Display("  L efad=%08X qi=%d skipnextstage=%d", ip->efad, STOREWAITS, ip->qi, ip->skipnextstage);
             PopLQ();
             InsertIntoStageBuffer(ip, EXECUTE);
             MEMBUSY = 1;
             ip->t[EXECUTE] = CK;      // stage timestamp
             break;
         case STORE: case STORE2:
-            if (debug > 2) printf("MEMBUSY=%d\n",MEMBUSY);
             if (MEMBUSY) { flag = -7; break; }
-            if (debug == 3) Display("  S efad=%08X STOREWAITS=%d  qi=%d skipnextstage=%d", ip->efad, STOREWAITS, ip->qi, ip->skipnextstage);
+            if (debug > 2) Display("  S efad=%08X STOREWAITS=%d  qi=%d wblat=%d skipnextstage=%d", ip->efad, STOREWAITS, ip->qi, ip->wblat, ip->skipnextstage);
 //            if (!STOREWAITS || (STOREWAITS && ip->qi == 0)) {
 //            if (ip->qi == 0) {
             if (ip->qi == 0 && ip->wblat == 0) {
@@ -2477,11 +2478,13 @@ int MEMACCESS_DO(Instruction *ip)
                 ip->t[EXECUTE] = CK;      // stage timestamp
             } else flag = 0;
             if (ip->qi == 0) {
-                if (SQ[SQHead]->wblat == 0) { 
+//                if (SQ[SQHead]->wblat == 0) { 
+                if (ip->wblat == 0) { 
                     PopSQ();
                     InsertIntoStageBuffer(ip, EXECUTE);
                  }
-                else SQ[SQHead]->wblat--;
+//                else SQ[SQHead]->wblat--;
+                else ip->wblat--;
             }
             break;
         default:
@@ -2824,8 +2827,10 @@ int ISSUE_END(Instruction *ipdummy)
 //         }
 //         if (sbp[k].delay == 1) ReleaseFU(ip);
 
+/*
             if (sbp[k].delay == 2 && ip->optype == L_FU) ReleaseFU(ip);
             if (!STOREWAITS) if (sbp[k].delay == 2 && ip->optype == S_FU) ReleaseFU(ip);
+*/
         }
         dbgln("");
     }
@@ -2961,10 +2966,11 @@ int EXECUTE_END(Instruction *ipdummy)
         if (found_ip) {
             if (debug >2) printf("  found: %s/%03d issued=%d", OPNAME[found_ip->opcode], found_ip->CIC, found_ip->issued);
 //            if (found_ip->issued && found_ip->optype == L_FU) {
+            int memok = 0;
             if ((! found_ip->issued) || found_ip->optype == S_FU) {
-                MEMACCESS_DO(found_ip);
+                memok = MEMACCESS_DO(found_ip);
             }
-            if (found_ip->optype == S_FU) { // it was a store --> complete too
+            if (memok == 1 && found_ip->optype == S_FU) { // it was a store --> complete too
                 if(debug) { dbgln(""); printf("STORE\n"); }
                 RB[found_ip->robn].cplt = 1;
                 found_ip->t[COMPLETE] = CK;      // stage timestamp
@@ -2977,11 +2983,20 @@ int EXECUTE_END(Instruction *ipdummy)
             if (debug >2) printf("  no L/S found\n");
         }
     }
+    // age the loads in the load queue
     if (!LQEmpty) for (int k = LQHead; k <= LQHead + LQElems; ++k) {
         int i = k % AA.lqsize;
         Instruction *ipl = LQ[i];
         if (ipl) if (ipl->issued) ipl->issued = 0;
         if (debug > 2) if (ipl) printf("ipl %08X %s/%03d issued=%d\n", ipl, OPNAME[ipl->opcode], ipl->CIC, ipl->issued);
+    }
+    // age the stores in the store queue
+    if (!SQEmpty) for (int k = SQHead; k <= SQHead + SQElems; ++k) {
+        int i = k % AA.sqsize;
+        Instruction *ips = SQ[i];
+        if (ips) if (ips->issued) ips->issued = 0;
+        if (ips) if (ips->wblat > 0 && ips->qi == 0) ips->wblat--;
+        if (debug > 2) if (ips) printf("ips %08X %s/%03d issued=%d\n", ips, OPNAME[ips->opcode], ips->CIC, ips->issued);
     }
     
 
