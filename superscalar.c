@@ -450,7 +450,8 @@ int Superscalar__Constr(void)
    STAGE_SIZ[FETCH] = AA.f_width;
    STAGE_SIZ[DECODE] = AA.d_width;
    STAGE_SIZ[DISPATCH] = AA.p_width;
-   STAGE_SIZ[ISSUE] = AA.i_width + 1; //RG251023: temporary patch
+//   STAGE_SIZ[ISSUE] = AA.i_width + 1; //RG251023: temporary patch
+   STAGE_SIZ[ISSUE] = AA.i_width;
    STAGE_SIZ[EXECUTE] = TotalFU;
    STAGE_SIZ[COMPLETE] = AA.w_width;
    STAGE_SIZ[COMMIT] = AA.c_width;
@@ -1030,6 +1031,35 @@ void Complete_STAGE(void) {
 }
 
 /*---------------------------------------------------------------------------*
+ NAME      : dump_load_store_queues
+ PURPOSE   : print load and store content for debugging purpose
+ PARAMETERS:
+ RETURN    :
+ *---------------------------------------------------------------------------*/
+void dump_load_store_queues(void)
+{
+    char aux[20];
+
+    printf("\nMINIMAP START (LOAD/STORE QUEUES)\n");
+
+    for (int k = 0; k < AA.lqsize; ++k) {
+        Instruction *ip = LQ[k];
+        strcpy(aux, "NULL");
+        if (ip) sprintf(aux, "%s/%03d", OPNAME[ip->opcode], ip->CIC);
+        printf("L[%d].ip=%s ", k, aux);
+    }
+    printf("\n");
+    for (int k = 0; k < AA.sqsize; ++k) {
+        Instruction *ip = SQ[k];
+        strcpy(aux, "NULL");
+        if (ip) sprintf(aux, "%s/%03d", OPNAME[ip->opcode], ip->CIC);
+        printf("S[%d].ip=%s ", k, aux);
+    }
+
+    printf("\nMINIMAP END   (LOAD/STORE QUEUES)\n");
+}
+
+/*---------------------------------------------------------------------------*
  NAME      : dump_stage_buffer
  PURPOSE   : print stage buffer content for debugging purpose
  PARAMETERS:
@@ -1080,8 +1110,10 @@ int InsertIntoStageBuffer(Instruction *ips, int stage)
    }
    if (found) {
       islot[qfound].ip    = ips;
-      islot[qfound].delay = 1; //tentative value: how about ip.delay ?
-      islot[qfound].inidelay = 1; //tentative value: how about ip.delay ?
+//      islot[qfound].delay = 1+ ips->inilatency;
+//      islot[qfound].inidelay = 1+ ips->inilatency;
+      islot[qfound].delay = ips->inilatency;
+      islot[qfound].inidelay = ips->inilatency;
       if (ips->optype==S_FU) {
 //            islot[qfound].skiponce = 1; //wait for next cycle
       }
@@ -1586,6 +1618,9 @@ void ReleaseIWEntry(Instruction *ip, int wk)
     if (G.tomasulo && ip->optype == S_FU) { --(FA[L_FU].rsallocated); }
     if (G.tomasulo && ip->optype == B_FU) --(FA[B_FU].rsallocated);
 
+    // Early release of RS
+    if (G.tomasulo && AA.early_rs_rel && ip->optype != S_FU && ip->optype != S_FU) --(FA[ip->optype].rsallocated);
+
    --IWAllocated;
    IWFull = 0;
 }
@@ -2060,19 +2095,23 @@ int X1_DO(Instruction *ip)
             efad = RM[ip->ps1].vi + ip->ps3; ip->efad = efad;
 //Display("L efad=%08X  -- P%d P%d x%d x%d %08X  %08X",efad,ip->ps1,ip->ps2,RM[ip->ps1].qi,RM[ip->ps2].qi,RM[ip->ps1].vi,RM[ip->ps2].vi);
             PushLQ(ip);
+            ReleaseFU(ip);
             break;
         case STORE:
             efad = RM[ip->ps2].vi + ip->ps3; ip->efad = efad;
             PushSQ(ip);
+            ReleaseFU(ip);
             break;
         case LOAD2:
             efad = RM[ip->ps1].vi + RM[ip->ps2].vi; ip->efad = efad;
 //Display("L efad=%08X  -- P%d P%d x%d x%d %08X  %08X",efad,ip->ps1,ip->ps2,RM[ip->ps1].qi,RM[ip->ps2].qi,RM[ip->ps1].vi,RM[ip->ps2].vi);
             PushLQ(ip);
+            ReleaseFU(ip);
             break;
         case STORE2:
             efad = RM[ip->ps1].vi + RM[ip->ps2].vi; ip->efad = efad;
             PushSQ(ip);
+            ReleaseFU(ip);
             break;
         case NOP:
         default:
@@ -2141,6 +2180,7 @@ int IssueIWEntry(Instruction **ipp)
     // Count issued stores and load
     int readyloads = 0, readystores = 0;
 
+/*
     // Preliminary scan of slots to count loads and stores ready to issue
     dbgln(""); if (debug) printf("  - IssueIWEntry:: Starting PRELIMINARY IW-SCAN...\n");
     if (IWAllocated) {
@@ -2160,6 +2200,7 @@ int IssueIWEntry(Instruction **ipp)
         printf("    ---> PRELIMINARY IW-SCAN: LOADPRI=%d readyloads=%d readystores=%d ISSUEDLOADS=%d ISSUEDSTORES=%d\n",\
           LOADHASPRI, readyloads, readystores, ISSUEDLOADS, ISSUEDSTORES);
     }
+*/
 
     // Search for a ready IW Entry
     if (IWAllocated) {
@@ -2241,6 +2282,7 @@ int IssueIWEntry(Instruction **ipp)
         if (ipfound) printf("%4s/%03d\n",OPNAME[ipfound->opcode], ipfound->CIC); else printf("\n");
     }
 
+/*
     // Early release of RS
     // Scan all completed ROB entries
     if (G.tomasulo) {
@@ -2261,6 +2303,7 @@ if (ip->issued) {
             }
         }
     }
+*/
     return (flag);
 } // IssueIWEntry
 
@@ -2385,6 +2428,72 @@ int DataMemCollision(Instruction *ip)
     return (flag);
 }
 
+/*
+            // for memory operations do bookkeeping when starting
+            if (ip->optype == S_FU || ip->optype == L_FU) {
+printf("CCCC d=%d i=%d\n", sbp[k].delay, ip->inilatency);
+                if (sbp[k].delay == ip->inilatency) {
+                    ip->t[EXECUTE] = CK;      // stage timestamp
+                }
+            }
+*/
+
+
+/*---------------------------------------------------------------------------*
+ NAME      : MEMACCESS_DO
+ PURPOSE   : Do the Memory Access
+ PARAMETERS:
+ RETURN    :
+ *---------------------------------------------------------------------------*/
+int MEMACCESS_DO(Instruction *ip)
+{
+    int flag = 1;
+
+    // DEBUG INFO
+    if (debug) printf("  in MEMACCESS: %4s/%03d MEMBUSY=%d\n", OPNAME[ip->opcode], ip->CIC, MEMBUSY);
+
+    /* do actual operation*/
+    switch (ip->opcode) {
+        case LOAD: case LOAD2:
+            if (debug > 2) printf("MEMBUSY=%d\n",MEMBUSY);
+            if (MEMBUSY) { flag = -7; break; }
+            PopLQ();
+            InsertIntoStageBuffer(ip, EXECUTE);
+            MEMBUSY = 1;
+            ip->t[EXECUTE] = CK;      // stage timestamp
+            break;
+        case STORE: case STORE2:
+            if (debug > 2) printf("MEMBUSY=%d\n",MEMBUSY);
+            if (MEMBUSY) { flag = -7; break; }
+            if (debug == 3) Display("  S efad=%08X STOREWAITS=%d  qi=%d skipnextstage=%d", ip->efad, STOREWAITS, ip->qi, ip->skipnextstage);
+//            if (!STOREWAITS || (STOREWAITS && ip->qi == 0)) {
+//            if (ip->qi == 0) {
+            if (ip->qi == 0 && ip->wblat == 0) {
+/*
+                if (ip->skipnextstage == 2) { ip->skipnextstage = 0; ip->fup = ip->fup1; flag = 1; }
+                if (ip->skipnextstage == 1) ip->skipnextstage = 2;
+*/
+                MEMBUSY = 1;
+                ip->t[EXECUTE] = CK;      // stage timestamp
+            } else flag = 0;
+            if (ip->qi == 0) {
+                if (SQ[SQHead]->wblat == 0) { 
+                    PopSQ();
+                    InsertIntoStageBuffer(ip, EXECUTE);
+                 }
+                else SQ[SQHead]->wblat--;
+            }
+            break;
+        default:
+            break;
+    }
+
+    // DEBUG INFO
+    if (debug) printf("* MEMACCESS: %4s/%03d MEMBUSY=%d flag=%d wblat=%d\n", OPNAME[ip->opcode], ip->CIC, MEMBUSY, flag, ip->wblat);
+
+    return (flag);
+}
+
 /*---------------------------------------------------------------------------*
  NAME      : EXECUTE_DO
  PURPOSE   : Do the Execute stage
@@ -2404,63 +2513,14 @@ int EXECUTE_DO(Instruction *ip)
             if ((ip->fup1)->ip == NULL) strcpy(aux, "NULL");
             else strcpy(aux, FUNAME[(ip->fup1)->ip->optype]);
         }
-        printf("  in EXECUTE: %4s/%03d  fup1=%s\n", OPNAME[ip->opcode], ip->CIC, aux);
+        printf("  in EXECUTE:   %4s/%03d  fup1=%s\n", OPNAME[ip->opcode], ip->CIC, aux);
     }
 
-    /* do actual operation*/
-    switch (ip->opcode) {
-        case LOAD:
-            if (debug > 2) printf("MEMBUSY=%d\n",MEMBUSY);
-            if (MEMBUSY) { flag = -7; break; }
-            PopLQ();
-            MEMBUSY = 1;
-            break;
-        case STORE:
-            if (debug > 2) printf("MEMBUSY=%d\n",MEMBUSY);
-            if (MEMBUSY) { flag = -7; break; }
-            if (debug == 3) Display("  S efad=%08X STOREWAITS=%d  qi=%d skipnextstage=%d", ip->efad, STOREWAITS, ip->qi, ip->skipnextstage);
-//            if (!STOREWAITS || (STOREWAITS && ip->qi == 0)) {
-//            if (ip->qi == 0) {
-            if (ip->qi == 0 && ip->wblat == 0) {
-/*
-                if (ip->skipnextstage == 2) { ip->skipnextstage = 0; ip->fup = ip->fup1; flag = 1; } 
-                if (ip->skipnextstage == 1) ip->skipnextstage = 2;
-*/
-                MEMBUSY = 1;
-            } else flag = 0;
-            if (ip->qi == 0) {
-                if (SQ[SQHead]->wblat == 0) { PopSQ(); }
-                else SQ[SQHead]->wblat--;
-            }
-            break;
-        case LOAD2:
-           if (MEMBUSY) { flag = -7; break; }
-            PopLQ();
-            MEMBUSY = 1;
-         break;
-        case STORE2:
-            if (MEMBUSY) { flag = -7; break; }
-            if (debug == 3) Display("  S2 efad=%08X STOREWAITS=%d  qi=%d skipnextstage=%d", ip->efad, STOREWAITS, ip->qi, ip->skipnextstage);
-//            if (!STOREWAITS || (STOREWAITS && ip->qi == 0)) {
-            if (ip->qi == 0 && ip->wblat == 0) {
-//                if (!STOREWAITS) {
-/*
-                if (ip->skipnextstage == 2) { ip->skipnextstage = 0; ip->fup = ip->fup1; flag = 1; } 
-                if (ip->skipnextstage == 1) ip->skipnextstage = 2;
-*/
-                MEMBUSY = 1;
-            } else flag = 0;
-            if (ip->qi == 0) {
-                if (SQ[SQHead]->wblat == 0) { PopSQ(); }
-                else SQ[SQHead]->wblat--;
-            }
-            break;
-        default:
-            break;
-    }
+    // do memory access
+//    flag = MEMACCESS_DO(ip);
 
     if (debug) {
-        printf("* EXECUTE: %4s/%03d flag=%d MEMBUSY=%d winn=%d robn=%d wblat=%d\n", OPNAME[ip->opcode], ip->CIC, flag, MEMBUSY, ip->winn, ip->robn, ip->wblat);
+        printf("* EXECUTE:   %4s/%03d MEMBUSY=%d winn=%d robn=%d flag=%d\n", OPNAME[ip->opcode], ip->CIC, MEMBUSY, ip->winn, ip->robn, flag);
     }
     return (flag);
 }
@@ -2524,8 +2584,8 @@ int COMPLETE_DO(Instruction *ip)
          if (SQ[p]->opcode == STORE2) SQ[p]->cl = CK;
             if (!STOREWAITS) {
                 dbgln("");
-                int ok = InsertIntoStageBuffer(SQ[p], EXECUTE);
-                if (ok != 1) ExitProg("Cannot propagate executed-store info");
+//                int ok = InsertIntoStageBuffer(SQ[p], EXECUTE);
+//                if (ok != 1) ExitProg("Cannot propagate executed-store info");
             }
       }
    }
@@ -2685,7 +2745,7 @@ int DISPATCH_END(Instruction *ipdummy)
     }
 
     if (debug) Display("--DISPATCH_END: freed %d P slots", freed);
-    dump_stage_buffer(DISPATCH);
+    if (debug > 2) dump_stage_buffer(DISPATCH);
 
 
     return(0);
@@ -2712,7 +2772,7 @@ int ISSUE_END(Instruction *ipdummy)
 //        if (RB[IW[k].ip->robn].cplt1 && IW[k].ip->wblat > 0 ) { (IW[k].ip->wblat)--; }
     }
 
-    dump_stage_buffer(DISPATCH);
+    if (debug > 2) dump_stage_buffer(DISPATCH);
     ReorderXstage(ISSUE);
 
    /* Model pipelining by freeing FUs at the end of stage */
@@ -2799,6 +2859,8 @@ int EXECUTE_END(Instruction *ipdummy)
    Instruction *ip;
    InstructionSlot *sbp = STAGE_BUF[EXECUTE];
 
+     if (debug) { dbgln(""); printf("--EXECUTE_END:\n"); }
+
    /* Model pipelining by freeing FUs at the end of stage */
 /*
    for (fa = 1; fa <= MAXFT; ++fa) {
@@ -2827,6 +2889,7 @@ int EXECUTE_END(Instruction *ipdummy)
         //                COMPLETE_DO(ip);
             }
 
+/*
             // Scan for Store instructions
             if (ip->optype == S_FU) {
                 if(debug) { dbgln(""); printf("STORE\n"); }
@@ -2843,6 +2906,7 @@ int EXECUTE_END(Instruction *ipdummy)
 
             if (!STOREWAITS) if (ip->store) RemoveFromStageBuffer(ip, EXECUTE);
             if (debug) if (!nldone) printf("\n");
+*/
         }
     }
 
@@ -2863,10 +2927,69 @@ int EXECUTE_END(Instruction *ipdummy)
     dbgln("\n");
 */
 
-if (debug == 3) dump_stage_buffer(DISPATCH);
-if (debug == 3) dump_stage_buffer(ISSUE);
-if (debug == 3) dump_stage_buffer(EXECUTE);
-if (debug == 3) dump_stage_buffer(COMPLETE);
+    // Count issued stores and load
+    int readyloads = 0, readystores = 0;
+
+    // Preliminary scan of slots to count loads and stores ready to issue
+    int found_lsq_entries  = 0;
+    dbgln(""); if (debug) printf("  - Starting PRELIMINARY LQ/SQ-SCAN...\n");
+//    if (!LQEmpty) if (LQ[LQHead]->qi ==  0) { found_lsq_entries = 1; ++readyloads; }
+    if (!LQEmpty) { found_lsq_entries = 1; ++readyloads; }
+    if (!SQEmpty) if (SQ[SQHead]->qi ==  0) { found_lsq_entries = 1; ++readystores; }
+    if(debug) { 
+        printf("    ---> PRELIMINARY LQ/SQ-SCAN: LOADPRI=%d readyloads=%d readystores=%d ISSUEDLOADS=%d ISSUEDSTORES=%d\n",\
+          LOADHASPRI, readyloads, readystores, ISSUEDLOADS, ISSUEDSTORES);
+    }
+    // Give prio to load or stores when both are ready to access memory in LQ and SQ
+    Instruction *found_ip = NULL, *ipl = NULL;;
+    if (found_lsq_entries == 1) {
+        if (AA.uni_lsu) {
+            if (LOADHASPRI) {
+                if (readystores > 0) { found_ip = SQ[SQHead]; ipl =  found_ip; }
+                if (readyloads  > 0) { found_ip = LQ[LQHead]; }
+            } else {
+                if (readyloads  > 0) { found_ip = LQ[LQHead]; ipl =  found_ip; }
+                if (readystores > 0) { found_ip = SQ[SQHead]; }
+            }
+        } else {
+            if (LOADHASPRI) {
+                found_ip = LQ[LQHead]; ipl =  found_ip;
+            } else {
+                found_ip = SQ[SQHead];
+            }
+        }
+        if (found_ip) {
+            if (debug >2) printf("  found: %s/%03d issued=%d", OPNAME[found_ip->opcode], found_ip->CIC, found_ip->issued);
+//            if (found_ip->issued && found_ip->optype == L_FU) {
+            if ((! found_ip->issued) || found_ip->optype == S_FU) {
+                MEMACCESS_DO(found_ip);
+            }
+            if (found_ip->optype == S_FU) { // it was a store --> complete too
+                if(debug) { dbgln(""); printf("STORE\n"); }
+                RB[found_ip->robn].cplt = 1;
+                found_ip->t[COMPLETE] = CK;      // stage timestamp
+                found_ip->fup   = NULL;    // consumed
+                MEMBUSY = 0;
+                RemoveFromStageBuffer(found_ip, EXECUTE);
+                ReleaseFU(found_ip);
+            }
+        } else {
+            if (debug >2) printf("  no L/S found\n");
+        }
+    }
+    if (!LQEmpty) for (int k = LQHead; k <= LQHead + LQElems; ++k) {
+        int i = k % AA.lqsize;
+        Instruction *ipl = LQ[i];
+        if (ipl) if (ipl->issued) ipl->issued = 0;
+        if (debug > 2) if (ipl) printf("ipl %08X %s/%03d issued=%d\n", ipl, OPNAME[ipl->opcode], ipl->CIC, ipl->issued);
+    }
+    
+
+if (debug > 2) dump_load_store_queues();
+if (debug > 2) dump_stage_buffer(DISPATCH);
+if (debug > 2) dump_stage_buffer(ISSUE);
+if (debug > 2) dump_stage_buffer(EXECUTE);
+if (debug > 2) dump_stage_buffer(COMPLETE);
 
    return(-1);
 }
@@ -2990,7 +3113,8 @@ int Stage(int st)
 //        if (st == COMPLETE ) { ReorderXstage(src_start); }
 
         // If this instr. merges current and next stage (e.g., I+X for ADD/MUL/DIV, X+W for S, I+X+W for B)
-        if (ip_src) { if (ip_src->skipnextstage) {  // go check another slot
+//        if (ip_src) { if (ip_src->skipnextstage) {  // go check another slot
+        if (ip_src) { if (ip_src->optype != L_FU && ip_src->optype != S_FU && ip_src->skipnextstage) {  // go check another slot
             if (debug) printf(" (MERGE %s+%s)", STAGE_ACR[st - 1], STAGE_ACR[st]); continue; }
          }
 
@@ -3107,9 +3231,16 @@ if (debug > 2) printf("\nNO-DST-FREE\n");
                     dst[di].delay = 1;
                 }
 //                if (st == ISSUE && ip0->optype != L_FU) dst[di].delay = 1;
+                // ISSUE stage ha always delay 1 (?)
                 if (st == ISSUE) dst[di].delay = 1;
 //                if (st == EXECUTE && ip0->optype != L_FU) dst[di].delay = ip0->inilatency;
                 if (st == EXECUTE) dst[di].delay = ip0->inilatency;
+
+                // do not insert stores in I (they are already in SQ)
+                if (st == ISSUE && ip0->optype == S_FU) { dst[di].ip = NULL; dst[di].delay = 0; }
+                // do not insert loads  in I (they are already in LQ)
+                if (st == ISSUE && ip0->optype == L_FU) { dst[di].ip = NULL; dst[di].delay = 0; }
+
 
                 // Bookkeeping
                 ip0->t[st] = CK;      // stage timestamp
