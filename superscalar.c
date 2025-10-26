@@ -131,6 +131,7 @@ typedef struct InstructionTAG {
    int robn;
    int winn;
    int issued;
+   int memdone;
    int lsqn;
    int waiting;
    FUnit *fup;
@@ -620,6 +621,7 @@ const char* fmt_stall_cause(int val, char *buf, size_t buflen) {
         case -6: snprintf(buf, buflen, "NO_RS"); break;
         case -7: snprintf(buf, buflen, "MEMBUSY"); break;
         case -8: snprintf(buf, buflen, "BRANCH"); break;
+        case -9: snprintf(buf, buflen, "CDB_WAIT"); break;
         default: snprintf(buf, buflen, "????"); break;
     }
     return buf;
@@ -1367,12 +1369,13 @@ int CheckFU(Instruction *ip)
  *---------------------------------------------------------------------------*/
 FUnit *GetFU(Instruction *ip, int fn)
 {
-   int k, t = ip->optype;
-   if (t == S_FU && AA.uni_lsu) t = L_FU;
+   int k, t1 = ip->optype, t;
+    if (t1 == S_FU && AA.uni_lsu) t = L_FU; else t = t1;
    if (debug) printf("  - GetFU: FA[%s].FU[%d] for %s/%03d\n", FUNAME[t], fn, OPNAME[ip->opcode], ip->CIC);
 
    FA[t].FU[fn].busy1 = 1;
-    ip->inilatency = FA[t].FU[fn].inilatency;
+//    ip->inilatency = FA[t1].FU[fn].inilatency;
+    ip->inilatency = FA[t1].inilatency;
    ++(FA[t].busy2);
    FA[t].FU[fn].ip = ip;
 //printf("%08X\n", ip);
@@ -2503,22 +2506,35 @@ int MEMACCESS_DO(Instruction *ip)
  PARAMETERS:
  RETURN    :
  *---------------------------------------------------------------------------*/
-void ReleaseMEM(Instruction *ip)
+int ReleaseMEM(Instruction *ip)
 {
-    if (debug > 2) { dbgln(""); printf("  -->ReleaseMEM: %s/%03d: ", INAME(ip), ICIC(ip)); }
-    if (ip->optype == S_FU) { // it was a store --> complete too
-        if(debug) { dbgln(""); printf("STORE\n"); }
-        RB[ip->robn].cplt = 1;
-        ip->t[COMPLETE] = CK;      // stage timestamp
-        ip->fup   = NULL;    // consumed
-        MEMBUSY = 0;
-        RemoveFromStageBuffer(ip, EXECUTE);
-        ReleaseFU(ip);
+    int flag = 0; 
+    if (debug > 2) { dbgln(""); NEEDLN = 1; printf("  -->ReleaseMEM: %s/%03d: ", INAME(ip), ICIC(ip)); }
+    if (! ip->memdone) {
+        if (ip->optype == S_FU) { // it was a store --> complete too
+            if(debug > 2) { printf("OK\n"); }
+            RB[ip->robn].cplt = 1;
+            ip->t[COMPLETE] = CK;      // stage timestamp
+            ip->fup   = NULL;    // consumed
+            MEMBUSY = 0;
+            ip->memdone = 1;
+            flag = 1;
+            RemoveFromStageBuffer(ip, EXECUTE);
+            ReleaseFU(ip);
+        }
+    //    if (ip->optype == L_FU && RB[ip->robn].cplt == 1) { // it was a load --> unlock MEM
+        if (ip->optype == L_FU) { // it was a load --> unlock MEM
+            if(debug > 2) { printf("OK\n"); }
+            MEMBUSY = 0;
+            ip->memdone = 1;
+            flag = 1;
+        }
+    } else {
+        printf(" already done! (waiting for CDB)");
+        flag = -9; //waiting for CDB
     }
-//    if (ip->optype == L_FU && RB[ip->robn].cplt == 1) { // it was a load --> unlock MEM
-    if (ip->optype == L_FU) { // it was a load --> unlock MEM
-        MEMBUSY = 0;
-    }
+    dbgln("");
+    return (flag);
 }
 /*---------------------------------------------------------------------------*
  NAME      : EXECUTE_DO
@@ -2648,7 +2664,7 @@ printf("RSDEALLOC\n");
     RB[ip->robn].cplt = 1;
     RB[ip->robn].cplt1 = 1;
 //    if (ip->optype == L_FU || ip->optype == S_FU) MEMBUSY = 0;
-    if (ip->optype == L_FU) ReleaseMEM(ip);
+//    if (ip->optype == L_FU) ReleaseMEM(ip);
    flag = 1;
 
     dbgln("");
@@ -2885,7 +2901,6 @@ int EXECUTE_END(Instruction *ipdummy)
 
      if (debug) { dbgln(""); printf("--EXECUTE_END:\n"); }
 
-   /* Model pipelining by freeing FUs at the end of stage */
 /*
    for (fa = 1; fa <= MAXFT; ++fa) {
       for (k = 1; k <= FA[fa].tot; ++k) {
@@ -2989,8 +3004,9 @@ int EXECUTE_END(Instruction *ipdummy)
             if ((! found_ip->issued) || found_ip->optype == S_FU) {
                 memok = MEMACCESS_DO(found_ip);
             }
+            //WRONG place: assumes always 1 cycle for the store latency
             if (memok == 1 && found_ip->optype == S_FU) { // it was a store --> complete too
-                ReleaseMEM(found_ip);
+//                ReleaseMEM(found_ip);
             }
             if (debug > 2) printf("  memok=%d MEMBUSY=%d", memok, MEMBUSY);
         } else {
@@ -3015,7 +3031,6 @@ int EXECUTE_END(Instruction *ipdummy)
     }
     
 
-/*
     // releaseMEM for finished memory operations
     for (int k = 0; k < TotalFU; ++k) {
         Instruction *ip = sbp[k].ip;
@@ -3028,7 +3043,6 @@ printf("X[%d]:%s/%03d.d=%d\n", k, INAME(ip), ICIC(ip), sbp[k].delay);
             }
         }
     }
-*/
 
 if (debug > 2) dump_load_store_queues();
 if (debug > 2) dump_stage_buffer(DISPATCH);
@@ -3560,6 +3574,7 @@ void read_program(char *pn)
              ip->robn = -1;
              ip->winn = -1;
              ip->issued = 0;
+             ip->memdone = 0;
              strcpy(ip->iws, "");
              strcpy(ip->rbs, "");
              ip->inqueue = 0;
