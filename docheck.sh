@@ -18,15 +18,15 @@ countt="0"
 
 # Loop on tests
 for t in $tests; do
-   src="./run-$t.sh"
+   src="./test/run-$t.sh"
    if [ ! -s "$src" ]; then
       echo "File '$src' not found!"
    else
       echo -n "* Testing $t  "
       countt=`expr $countt + 1`
-      ./run-$t.sh -s yes $* |extractcycles.sh > $tmpfile
+      $src -s yes $* |extractcycles.sh > $tmpfile
       if [ -s "$tmpfile" ]; then
-         out1="$t.cycles"
+         out1="./test/$t.cycles"
          outd=`diff $out1 $out2`
          if [ -z "$outd" ]; then
             echo " --> OK"
