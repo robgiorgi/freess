@@ -1,1 +1,1 @@
-run-tom08.sh
+run-tom08r.sh
