@@ -2096,25 +2096,27 @@ int X1_DO(Instruction *ip)
             break;
         case LOAD:
             efad = RM[ip->ps1].vi + ip->ps3; ip->efad = efad;
-//Display("L efad=%08X  -- P%d P%d x%d x%d %08X  %08X",efad,ip->ps1,ip->ps2,RM[ip->ps1].qi,RM[ip->ps2].qi,RM[ip->ps1].vi,RM[ip->ps2].vi);
+            if (debug > 2) Display("  X1_DO:: L efad=%08X  -- P%d P%d x%d x%d %08X  %08X",efad,ip->ps1,ip->ps2,RM[ip->ps1].qi,RM[ip->ps2].qi,RM[ip->ps1].vi,RM[ip->ps2].vi);
             PushLQ(ip);
-            ReleaseFU(ip);
+            if (G.tomasulo) ReleaseFU(ip);
             break;
         case STORE:
             efad = RM[ip->ps2].vi + ip->ps3; ip->efad = efad;
+            if (debug >2) Display("    X1_DO:: S efad=%08X  -- P%d P%d x%d x%d %08X  %08X",efad,ip->ps1,ip->ps2,RM[ip->ps1].qi,RM[ip->ps2].qi,RM[ip->ps1].vi,RM[ip->ps2].vi);
             PushSQ(ip);
-            ReleaseFU(ip);
+            if (G.tomasulo) ReleaseFU(ip);
             break;
         case LOAD2:
             efad = RM[ip->ps1].vi + RM[ip->ps2].vi; ip->efad = efad;
-//Display("L efad=%08X  -- P%d P%d x%d x%d %08X  %08X",efad,ip->ps1,ip->ps2,RM[ip->ps1].qi,RM[ip->ps2].qi,RM[ip->ps1].vi,RM[ip->ps2].vi);
+            if (debug >2) Display("    X1_DO:: L efad=%08X  -- P%d P%d x%d x%d %08X  %08X",efad,ip->ps1,ip->ps2,RM[ip->ps1].qi,RM[ip->ps2].qi,RM[ip->ps1].vi,RM[ip->ps2].vi);
             PushLQ(ip);
-            ReleaseFU(ip);
+            if (G.tomasulo) ReleaseFU(ip);
             break;
         case STORE2:
             efad = RM[ip->ps1].vi + RM[ip->ps2].vi; ip->efad = efad;
+            if (debug >2) Display("    X1_DO:: S efad=%08X  -- P%d P%d x%d x%d %08X  %08X",efad,ip->ps1,ip->ps2,RM[ip->ps1].qi,RM[ip->ps2].qi,RM[ip->ps1].vi,RM[ip->ps2].vi);
             PushSQ(ip);
-            ReleaseFU(ip);
+            if (G.tomasulo) ReleaseFU(ip);
             break;
         case NOP:
         default:
@@ -2874,19 +2876,22 @@ int ISSUE_END(Instruction *ipdummy)
 
     // For ALL completed instructions: release the correspomding FU
     for (int k = 0; k < AA.rob_size; ++k) { // Scan all completed ROB entries
-        if (RB[k].rbbusy && RB[k].cplt) {
+//        if (RB[k].rbbusy && RB[k].cplt) {
+        if (RB[k].rbbusy) {
             Instruction *ip = RB[k].ip;
-    
-            // Non-Pipelined FU implementation: release the FU right after the execute
-            if (! G.tomasulo) if (ip->optype == M_FU || ip->optype == D_FU) {
-                ReleaseFU(ip);
+            if (ip->issued) {
+        
+                // Non-Pipelined FU implementation: release the FU right after the execute
+    //            if (! G.tomasulo) if (ip->optype == M_FU || ip->optype == D_FU) {
+                if (! G.tomasulo) {
+                    ReleaseFU(ip);
+                }
             }
         }
     }
 
     ISSUEDINSTR = 0;
-// ReleaseFU(ip);
-   return(0);
+    return(0);
 }
 
 /*---------------------------------------------------------------------------*
@@ -3045,7 +3050,7 @@ int EXECUTE_END(Instruction *ipdummy)
         if (ip != NULL) {
             if (ip->optype == L_FU || ip->optype == S_FU) {
 if (debug > 3) printf("X[%d]:%s/%03d.d=%d\n", k, INAME(ip), ICIC(ip), sbp[k].delay);
-                if (sbp[k].delay == 1) {
+                if (sbp[k].delay == 1 || (!G.tomasulo && AA.mem_pipe)) {
                     ReleaseMEM(ip);
                 }
             }

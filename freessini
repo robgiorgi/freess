@@ -21,6 +21,7 @@
 # -ioc		= In-Order Complete
 # -unidi	= Unified Dispatch/Issue
 # -rsrel	= Early RS Release
+# -mempipe	= Pipelined Data Mempry
 # -fw		= Fetch Width
 # -dw		= Decode Width
 # -pw		= Dispatch Width
@@ -127,6 +128,7 @@ io_issue=no
 io_complete=no
 uni_di=yes
 early_rs_rel=yes
+mem_pipe=yes
 f_width=4
 d_width=4
 p_width=4
@@ -246,6 +248,10 @@ while [ $# -gt 0 ]; do
    elif [ "'$1'" = "'-rsrel'" ]; then
       shift
       early_rs_rel=$1
+      shift
+   elif [ "'$1'" = "'-mempipe'" ]; then
+      shift
+      mem_pipe=$1
       shift
    elif [ "'$1'" = "'-fw'" ]; then
       shift
@@ -435,45 +441,46 @@ uuu="\
  In-Order Complete	= __REFO14__		;  In-Order Complete
  Unified Disp./Issue	= __REFO15__		;  Unified Dispatch/Issue
  Early RS Release	= __REFO16__		;  Early RS Release
- Fetch Width		= __REFO17__		;  Fetch Width
- Decode Width		= __REFO18__		;  Decode Width
- Dispatch Width		= __REFO19__		;  Dispatch Width
- Issue Width		= __REFO20__		;  Issue Width
- Write-Back Width	= __REFO21__		;  Write-Back Width
- Commit Width		= __REFO22__		;  Commit Width
- Window Size		= __REFO23__		;  Instruction Window Size
- ROB Size		= __REFO24__		;  Reorder Buffer Size
- Integer ALU Units	= __REFO25__		;  Number of Int. FU
- Integer ALU Latency	= __REFO26__		;  Latency of INT ALU FU
- Int. ALU Res.Stat.	= __REFO27__		;  Reservation St. per FU
- Integer Mult. Units	= __REFO28__		;  Number of Mult. FU
- Integer Mul. Latency	= __REFO29__		;  Latency of Mult. FU
- Integer Mul. Pipe	= __REFO30__		;  Pipelinization of Mult.
- Int. Mul. Res.Stat.	= __REFO31__		;  Reservation St. per FU
- Integer Div. Units	= __REFO32__		;  Number of Div. FU
- Integer Div. Latency	= __REFO33__		;  Latency of Div. FU
- Integer Div. Pipe	= __REFO34__		;  Pipelinization of Div.
- Int. Div. Res.Stat.	= __REFO35__		;  Reservation St. per FU
- Floating Point Units	= __REFO36__		;  Number of FP FU
- Floating Point Mul	= __REFO37__		;  Number of FP Mult. FU
- Load Units		= __REFO38__		;  Number of Load FU
- Load Latency		= __REFO39__		;  Latency of Load FU
- Load Pipe		= __REFO40__		;  Pipelinization of Load
- Store Units		= __REFO41__		;  Number of Store FU
- Store Latency		= __REFO42__		;  Latency of Store FU
- Store Pipe		= __REFO43__		;  Pipelinization of Store
- Store Waits		= __REFO44__		;  Store waits completion
- Load/Store Res.Stat.	= __REFO45__		;  Reservation St. per FU
- Branch Units		= __REFO46__		;  Number of Branch FU
- Branch Latency		= __REFO47__		;  Latency of Branch FU
- Branch Res.Stat.	= __REFO48__		;  Reservation St. per FU
- Load Queue Size	= __REFO49__		;  Load Queue Size
- Store Queue Size	= __REFO50__		;  Store Queue Size
- Speculation		= __REFO51__		;  Enable Speculation
- Write Back Latency	= __REFO52__		;  Write Back Latency
+ Data Mem. Pipe		= __REFO17__		;  Pipelined Data Mempry
+ Fetch Width		= __REFO18__		;  Fetch Width
+ Decode Width		= __REFO19__		;  Decode Width
+ Dispatch Width		= __REFO20__		;  Dispatch Width
+ Issue Width		= __REFO21__		;  Issue Width
+ Write-Back Width	= __REFO22__		;  Write-Back Width
+ Commit Width		= __REFO23__		;  Commit Width
+ Window Size		= __REFO24__		;  Instruction Window Size
+ ROB Size		= __REFO25__		;  Reorder Buffer Size
+ Integer ALU Units	= __REFO26__		;  Number of Int. FU
+ Integer ALU Latency	= __REFO27__		;  Latency of INT ALU FU
+ Int. ALU Res.Stat.	= __REFO28__		;  Reservation St. per FU
+ Integer Mult. Units	= __REFO29__		;  Number of Mult. FU
+ Integer Mul. Latency	= __REFO30__		;  Latency of Mult. FU
+ Integer Mul. Pipe	= __REFO31__		;  Pipelinization of Mult.
+ Int. Mul. Res.Stat.	= __REFO32__		;  Reservation St. per FU
+ Integer Div. Units	= __REFO33__		;  Number of Div. FU
+ Integer Div. Latency	= __REFO34__		;  Latency of Div. FU
+ Integer Div. Pipe	= __REFO35__		;  Pipelinization of Div.
+ Int. Div. Res.Stat.	= __REFO36__		;  Reservation St. per FU
+ Floating Point Units	= __REFO37__		;  Number of FP FU
+ Floating Point Mul	= __REFO38__		;  Number of FP Mult. FU
+ Load Units		= __REFO39__		;  Number of Load FU
+ Load Latency		= __REFO40__		;  Latency of Load FU
+ Load Pipe		= __REFO41__		;  Pipelinization of Load
+ Store Units		= __REFO42__		;  Number of Store FU
+ Store Latency		= __REFO43__		;  Latency of Store FU
+ Store Pipe		= __REFO44__		;  Pipelinization of Store
+ Store Waits		= __REFO45__		;  Store waits completion
+ Load/Store Res.Stat.	= __REFO46__		;  Reservation St. per FU
+ Branch Units		= __REFO47__		;  Number of Branch FU
+ Branch Latency		= __REFO48__		;  Latency of Branch FU
+ Branch Res.Stat.	= __REFO49__		;  Reservation St. per FU
+ Load Queue Size	= __REFO50__		;  Load Queue Size
+ Store Queue Size	= __REFO51__		;  Store Queue Size
+ Speculation		= __REFO52__		;  Enable Speculation
+ Write Back Latency	= __REFO53__		;  Write Back Latency
 
 [Program Defaults]						
- Log File Name		= __REFO53__		;  Log File
+ Log File Name		= __REFO54__		;  Log File
 
 
 "
@@ -487,7 +494,7 @@ fi
 
 if [ "$help" = "1" -o "$c" != "0" ]; then
    echo "Usage:"
-   echo "   $scr [-exe <program_name>] [-s <silent>] [-int <interactive>] [-batch <mode>] [-iter <iterations>] [-stck <starting_clock_cycle>] [-tom <tomasulo_mode>] [-lregs <logical_registers>] [-pregs <physical_registers>] [-pstruct <pipeline_structure>] [-unilsu <unified_lsu>] [-loadpri <load_over_store_pri>] [-ioi <in-order_issue>] [-ioc <in-order_complete>] [-unidi <unified_disp./issue>] [-rsrel <early_rs_release>] [-fw <fetch_width>] [-dw <decode_width>] [-pw <dispatch_width>] [-iw <issue_width>] [-ww <write-back_width>] [-cw <commit_width>] [-wins	 <window_size>] [-robs	 <rob_size>] [-afu	 <integer_alu_units>] [-alat <integer_alu_latency>] [-ars <int._alu_res.stat.>] [-mfu	 <integer_mult._units>] [-mlat <integer_mul._latency>] [-mpipe <integer_mul._pipe>] [-mrs <int._mul._res.stat.>] [-dfu	 <integer_div._units>] [-dlat <integer_div._latency>] [-dpipe <integer_div._pipe>] [-drs <int._div._res.stat.>] [-ffu	 <floating_point_units>] [-xfu	 <floating_point_mul>] [-lfu	 <load_units>] [-llat <load_latency>] [-lpipe <load_pipe>] [-sfu	 <store_units>] [-slat <store_latency>] [-spipe <store_pipe>] [-swaits <store_waits>] [-lsrs <load/store_res.stat.>] [-bfu	 <branch_units>] [-blat <branch_latency>] [-brs <branch_res.stat.>] [-lqs	 <load_queue_size>] [-sqs	 <store_queue_size>] [-spec <speculation>] [-wblat	 <write_back_latency>] [-logfile <log_file_name>] "
+   echo "   $scr [-exe <program_name>] [-s <silent>] [-int <interactive>] [-batch <mode>] [-iter <iterations>] [-stck <starting_clock_cycle>] [-tom <tomasulo_mode>] [-lregs <logical_registers>] [-pregs <physical_registers>] [-pstruct <pipeline_structure>] [-unilsu <unified_lsu>] [-loadpri <load_over_store_pri>] [-ioi <in-order_issue>] [-ioc <in-order_complete>] [-unidi <unified_disp./issue>] [-rsrel <early_rs_release>] [-mempipe <data_mem._pipe>] [-fw <fetch_width>] [-dw <decode_width>] [-pw <dispatch_width>] [-iw <issue_width>] [-ww <write-back_width>] [-cw <commit_width>] [-wins	 <window_size>] [-robs	 <rob_size>] [-afu	 <integer_alu_units>] [-alat <integer_alu_latency>] [-ars <int._alu_res.stat.>] [-mfu	 <integer_mult._units>] [-mlat <integer_mul._latency>] [-mpipe <integer_mul._pipe>] [-mrs <int._mul._res.stat.>] [-dfu	 <integer_div._units>] [-dlat <integer_div._latency>] [-dpipe <integer_div._pipe>] [-drs <int._div._res.stat.>] [-ffu	 <floating_point_units>] [-xfu	 <floating_point_mul>] [-lfu	 <load_units>] [-llat <load_latency>] [-lpipe <load_pipe>] [-sfu	 <store_units>] [-slat <store_latency>] [-spipe <store_pipe>] [-swaits <store_waits>] [-lsrs <load/store_res.stat.>] [-bfu	 <branch_units>] [-blat <branch_latency>] [-brs <branch_res.stat.>] [-lqs	 <load_queue_size>] [-sqs	 <store_queue_size>] [-spec <speculation>] [-wblat	 <write_back_latency>] [-logfile <log_file_name>] "
    echo ""
    echo "   PARAMETER NAME                       DESCRIPTION             DEFAULT VALUE"
    echo "   <program_name>			Name of program		program"
@@ -506,6 +513,7 @@ if [ "$help" = "1" -o "$c" != "0" ]; then
    echo "   <in-order_complete>			In-Order Complete	no"
    echo "   <unified_disp./issue>		Unified Dispatch/Issue	yes"
    echo "   <early_rs_release>			Early RS Release	yes"
+   echo "   <data_mem._pipe>			Pipelined Data Mempry	yes"
    echo "   <fetch_width>			Fetch Width		4"
    echo "   <decode_width>			Decode Width		4"
    echo "   <dispatch_width>			Dispatch Width		4"
@@ -574,43 +582,44 @@ s:__REFO13__:$io_issue:
 s:__REFO14__:$io_complete:
 s:__REFO15__:$uni_di:
 s:__REFO16__:$early_rs_rel:
-s:__REFO17__:$f_width:
-s:__REFO18__:$d_width:
-s:__REFO19__:$p_width:
-s:__REFO20__:$i_width:
-s:__REFO21__:$w_width:
-s:__REFO22__:$c_width:
-s:__REFO23__:$win_size:
-s:__REFO24__:$rob_size:
-s:__REFO25__:$int_fu:
-s:__REFO26__:$a_lat:
-s:__REFO27__:$a_rs:
-s:__REFO28__:$im_fu:
-s:__REFO29__:$im_lat:
-s:__REFO30__:$im_pipe:
-s:__REFO31__:$im_rs:
-s:__REFO32__:$id_fu:
-s:__REFO33__:$id_lat:
-s:__REFO34__:$id_pipe:
-s:__REFO35__:$id_rs:
-s:__REFO36__:$fp_fu:
-s:__REFO37__:$fm_fu:
-s:__REFO38__:$l_fu:
-s:__REFO39__:$l_lat:
-s:__REFO40__:$l_pipe:
-s:__REFO41__:$s_fu:
-s:__REFO42__:$s_lat:
-s:__REFO43__:$s_pipe:
-s:__REFO44__:$s_waits:
-s:__REFO45__:$ls_rs:
-s:__REFO46__:$b_fu:
-s:__REFO47__:$b_lat:
-s:__REFO48__:$b_rs:
-s:__REFO49__:$lqsize:
-s:__REFO50__:$sqsize:
-s:__REFO51__:$speculation:
-s:__REFO52__:$wblat:
-s:__REFO53__:$logfile:
+s:__REFO17__:$mem_pipe:
+s:__REFO18__:$f_width:
+s:__REFO19__:$d_width:
+s:__REFO20__:$p_width:
+s:__REFO21__:$i_width:
+s:__REFO22__:$w_width:
+s:__REFO23__:$c_width:
+s:__REFO24__:$win_size:
+s:__REFO25__:$rob_size:
+s:__REFO26__:$int_fu:
+s:__REFO27__:$a_lat:
+s:__REFO28__:$a_rs:
+s:__REFO29__:$im_fu:
+s:__REFO30__:$im_lat:
+s:__REFO31__:$im_pipe:
+s:__REFO32__:$im_rs:
+s:__REFO33__:$id_fu:
+s:__REFO34__:$id_lat:
+s:__REFO35__:$id_pipe:
+s:__REFO36__:$id_rs:
+s:__REFO37__:$fp_fu:
+s:__REFO38__:$fm_fu:
+s:__REFO39__:$l_fu:
+s:__REFO40__:$l_lat:
+s:__REFO41__:$l_pipe:
+s:__REFO42__:$s_fu:
+s:__REFO43__:$s_lat:
+s:__REFO44__:$s_pipe:
+s:__REFO45__:$s_waits:
+s:__REFO46__:$ls_rs:
+s:__REFO47__:$b_fu:
+s:__REFO48__:$b_lat:
+s:__REFO49__:$b_rs:
+s:__REFO50__:$lqsize:
+s:__REFO51__:$sqsize:
+s:__REFO52__:$speculation:
+s:__REFO53__:$wblat:
+s:__REFO54__:$logfile:
 }" > ./$rfn.ini
 
 

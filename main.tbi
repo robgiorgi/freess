@@ -22,6 +22,7 @@ Entry = In-Order Issue;		io_issue;	YES_NO;	0;	0;		no;		In-Order Issue;		 4;	ioi
 Entry = In-Order Complete;	io_complete;	YES_NO;	0;	0;		no;		In-Order Complete;	 4;	ioc
 Entry = Unified Disp./Issue;	uni_di;		YES_NO;	0;	0;		yes;		Unified Dispatch/Issue;	 4;	unidi
 Entry = Early RS Release;	early_rs_rel;	YES_NO;	0;	0;		yes;		Early RS Release;	 4;	rsrel
+Entry = Data Mem. Pipe;		mem_pipe;	YES_NO;	0;	0;		yes;		Pipelined Data Mempry;	 4;	mempipe
 #
 Entry = Fetch Width;		f_width;	NUMVAL;	1;	MAXISSUEWIDTH;	4;		Fetch Width;		 4;	fw
 Entry = Decode Width;		d_width;	NUMVAL;	1;	MAXISSUEWIDTH;	4;		Decode Width;		 4;	dw
