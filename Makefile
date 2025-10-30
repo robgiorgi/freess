@@ -19,7 +19,7 @@ WASM_FLAGS1 = -O3 $(CFLAGS1) -s USE_SDL=2
 # -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s EXIT_RUNTIME=1
 WASM_FLAGS2 = -s MODULARIZE=1 -s EXPORT_NAME="freessModule" -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
               -s EXPORTED_RUNTIME_METHODS='["FS", "callMain"]' -s EXIT_RUNTIME=0 \
-              --embed-file program-ex1
+              --embed-file test/program-ex1
 
 # Targets
 

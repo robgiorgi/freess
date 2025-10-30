@@ -1,6 +1,14 @@
 #!/bin/bash
 
 tests="c2050623 c2060705a c2060705b c2100120 c2130204a c2130204b c2141107a c2141107b c2141107r c2171031 c2191030 c2191030w c2201103 c2221028 c2231030 c2241029"
+exe="freess"
+
+# Dependency check
+if [ ! -s "./$exe" ]; then
+   echo "cannot find './$exe'"
+   exit 2
+fi
+
 
 ####################### ARGUMENT MANAGEMENT START
 addargs=()        # array of -a arguments (preserves spaces/quoting)

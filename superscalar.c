@@ -8,6 +8,8 @@ MODIFIED BY : RG[14-May-2025]
 /*------------- LIBRARY PROCEDURES ------------------------------------------*/
 #include <stdio.h>
 #include <string.h>	/* strcmp(), strncpy(), strcpy() */
+#include <stdint.h>
+#include <inttypes.h>
 #include "main.h"
 #include "superscalar.h"
 
@@ -56,7 +58,7 @@ MODIFIED BY : RG[14-May-2025]
 #define RETIRE	        7
 
 
-typedef int u32;
+typedef unsigned int u32;
 typedef u32 rgid;
 typedef u32 indx;
 typedef u32 valu;
@@ -204,44 +206,6 @@ typedef struct RegFileTAG {
    int qi;
 } RegFile;
 
-typedef struct RegStationTAG {
-   indx QJ, QK;
-   valu VJ, VK;
-   opcd OP;
-   bool BUSY;
-} RegStation;
-
-typedef struct StoreQTAG {
-   addr AD;
-   indx qi;
-   valu vi;
-    int busy;
-//    int wblat;
-    Instruction *ip;
-} StoreQ;
-
-typedef struct LoadQTAG {
-   addr AD;
-} LoadQ;
-
-typedef struct CDBusTAG {
-   bool BUSY;
-   indx qi;
-   valu vi;
-} CDBus;
-
-typedef struct DECODELATCH_TAG {
-   opcd OP;
-   indx RS;
-   indx RT;
-   indx RD;
-} DECODELATCH;
-
-typedef struct FuncUnitTAG {
-   bool BUSY;
-   opcd OP;
-} FuncUnit;
-
 #define FU_MAX 3
 #define RS_MAX 8
 #define RF_MAX 8
@@ -374,10 +338,12 @@ int	IC;	/* Instruction Counter */
 int	PIC;	/* Previous Instruction Counter */
 int	IsEnd;	/* Flag to indicate End */
 
-RegStation   RS[RS_MAX + 1]; /* 2 RS_M, 3 RS_LS, 3 RS_A, 0 is not used*/
+/*
+RegStation   RS[RS_MAX + 1]; // 2 RS_M, 3 RS_LS, 3 RS_A, 0 is not used
 CDBus        CDB[1];
 DECODELATCH  DCD[1];
 FuncUnit     FU[FU_MAX + 1];
+*/
 
 static  int             (*SSSClose)(FILE *) = NULL;
 static  FILE            *SSS_fp = NULL;
@@ -844,24 +810,11 @@ void LogStall(int *stallcnt, char *stalltype)
 }
 
 /*---------------------------------------------------------------------------*
- NAME      : WriteCDB
- PURPOSE   : Write on the common data bus
+ NAME      : execution functions
+ PURPOSE   : 
  PARAMETERS:
  RETURN    :
  *---------------------------------------------------------------------------*/
-int WriteCDB(indx r, valu v) {
-   int ok = 0;
-
-   if (CDB[0].BUSY == 0) {
-      CDB[0].qi = r;
-      CDB[0].vi = v;
-      CDB[0].BUSY = 1;
-      ok = 1;
-   }
-
-   return (ok);
-}
-
 void ExecA(int fu, indx r) {
 
 }
@@ -894,146 +847,6 @@ void PushSA(addr AD) {
 
 void PushL(addr AD) {
 
-}
-
-int Get_Available_RS(opcd op) {
-   int rr;
-   int found = 0;
-
-   for (rr = 1; rr <= RS_MAX; ++rr) {
-      if (RS[rr].BUSY == 0 && ((RS[rr].OP & op) == op)) { found = rr; break; }
-   }
-
-   return (found);
-}
-
-int Get_Available_FU(opcd op) {
-   int ff;
-   int found = 0;
-
-   for (ff = 1; ff <= FU_MAX; ++ff) {
-       if (FU[ff].BUSY == 0 && ((FU[ff].OP & op) == op)) { found = ff; break; }
-   }
-
-   return (found);
-}
-
-void Get_Decoded_Instr(opcd *op, indx *rs, indx *rt, indx *rd) {
-   *op = DCD[0].OP;
-   *rs = DCD[0].RS;
-   *rt = DCD[0].RT;
-   *rd = DCD[0].RD;
-}
-
-int Get_ResStation(opcd op) {
-   int rr;
-   int found = 0;
-
-   for (rr = 1; rr <= RS_MAX; ++rr) {
-      if (RS[rr].BUSY == 1 && ((RS[rr].OP & op) == op)) { found = rr; break; }
-   }
-
-   return (found);
-}
-
-void Initialize(void) {
-
-   FU[1].OP = MFUOP;
-   RS[1].OP = MFUOP;
-   RS[2].OP = MFUOP;
-
-   FU[2].OP = LFUOP|SFUOP;
-   RS[3].OP = LFUOP|SFUOP;
-   RS[4].OP = LFUOP|SFUOP;
-   RS[5].OP = LFUOP|SFUOP;
-
-   FU[3].OP = AFUOP;
-   RS[6].OP = AFUOP;
-   RS[7].OP = AFUOP;
-   RS[8].OP = AFUOP;
-}
-
-/*---------------------------------------------------------------------------*
- NAME      : Dispatch_STAGE
- PURPOSE   : Implement the Dispatch (P) stage
- PARAMETERS:
- RETURN    :
- *---------------------------------------------------------------------------*/
-int Dispatch_STAGE(void) {
-   indx r; opcd op; rgid rs; rgid rt; rgid rd;
-
-   Get_Decoded_Instr(&op, &rs, &rt, &rd);
-   r = Get_Available_RS(op);
-   if (r == 0) return -1;
-
-
-   switch(op) {
-      case L_FU: case S_FU: case M_FU: case D_FU: case A_FU:
-         if (RF[rs].qi != 0) { RS[r].QJ = RF[rs].qi; } else {  RS[r].VJ = RF[rs].vi;  RS[r].QJ =0; }
-         if (RF[rt].qi != 0) { RS[r].QK = RF[rt].qi; } else {  RS[r].VK = RF[rt].vi;  RS[r].QK =0; }
-         break;
-      case N_FU: default:
-         Display("NOP or undefined instructions\n");
-   }
-   if (op == S_FU) { PushS(rd); }
-   RS[r].BUSY = 1;
-   RF[rd].qi = r;
-   return(0);
-}
-
-/*---------------------------------------------------------------------------*
- NAME      : Issue_STAGE
- PURPOSE   : Implement the Issue (I) stage
- PARAMETERS:
- RETURN    :
- *---------------------------------------------------------------------------*/
-int Issue_STAGE(void) {
-   int fu;
-   indx r;
-   opcd op;
-
-   for (fu = 1; fu < FU_MAX; ++fu) {
-      op = FU[fu].OP;
-      if (FU[fu].BUSY == 0 && ((FU[fu].OP & op) == op)) {
-
-         r = Get_ResStation(op);      
-         if (r == 0) continue;
-
-         switch (op) {
-            case M_FU: if (RS[r].QJ == 0 && RS[r].QK == 0) { RS[r].BUSY = 0; ExecM(fu, r); } break;
-            case D_FU: if (RS[r].QJ == 0 && RS[r].QK == 0) { RS[r].BUSY = 0; ExecM(fu, r); } break;
-            case L_FU: if (RS[r].QJ == 0 && RS[r].QK == 0) { RS[r].BUSY = 0; ExecL(fu, r); } break;
-            case A_FU: if (RS[r].QJ == 0 && RS[r].QK == 0) { RS[r].BUSY = 0; ExecA(fu, r); } break;
-            case B_FU: if (RS[r].QJ == 0 && RS[r].QK == 0) { RS[r].BUSY = 0; ExecB(fu, r); } break;
-            case S_FU: if (RS[r].QJ == 0 && RS[r].QK == 0) { RS[r].BUSY = 0; ExecS(fu, r); } break;
-         }
-      }
-
-   }
-   return(0);
-}
-
-/*---------------------------------------------------------------------------*
- NAME      : Complete_STAGE
- PURPOSE   : Implement the Complete (Write-back or W) stage
- PARAMETERS:
- RETURN    :
- *---------------------------------------------------------------------------*/
-void Complete_STAGE(void) {
-   int rr;
-
-   if (CDB[0].BUSY == 1) {
-      for (rr = 1; rr <= RS_MAX; ++rr) {
-         if (RS[rr].QJ == CDB[0].qi) { RS[rr].VJ = CDB[0].vi; RS[rr].QJ = 0; RS[rr].BUSY = 0; }
-         if (RS[rr].QK == CDB[0].qi) { RS[rr].VK = CDB[0].vi; RS[rr].QK = 0; RS[rr].BUSY = 0; }
-      }
-      for (rr = 0; rr < RF_MAX; ++rr) {
-         if (RF[rr].qi == CDB[0].qi) { RF[rr].vi = CDB[0].vi; RF[rr].qi = 0; }
-      }
-      for (rr = 0; rr < AA.sqsize; ++rr) {
-//         if (SQ[rr]) if (SQ[rr]->qi == CDB[0].qi) { SQ[rr]->vi = CDB[0].vi; SQ[rr]->qi = 0; }
-      }
-   }
 }
 
 /*---------------------------------------------------------------------------*
@@ -2070,7 +1883,11 @@ int X1_DO(Instruction *ip)
     int flag = 1; u32 efad;
     
     //
-    if (debug) printf("  in X1_DO: %4s/%03d  fup1=%08X\n", OPNAME[ip->opcode], ip->CIC, ip->fup1);
+    if (debug) {
+        uintptr_t addr = (uintptr_t)(ip->fup1);
+        int w = (int)(2 * sizeof(addr));  // 2 hex chars per byte
+        printf("  in X1_DO: %4s/%03d  fup1=%0*" PRIxPTR "\n", OPNAME[ip->opcode], ip->CIC, w, addr);
+    }
 
 
     //
@@ -2141,8 +1958,12 @@ int IsIWEntryReady(int k, Instruction *ip)
     int flag = 0;
 
     if (debug) {
-        NEEDLN = 1; printf("    IsIWEntryReady #%02d: ip 0x%lX %s/%03d qj %d qk %d ql %d wait=%d",\
-            k, ip, OPNAME[ip->opcode], ip->CIC, IW[k].qj, IW[k].qk, IW[k].ql, ip->waiting);
+        uintptr_t addr = (uintptr_t)ip;
+        int w = (int)(2 * sizeof(addr));  // 2 hex chars per byte
+//        NEEDLN = 1; printf("    IsIWEntryReady #%02d: ip 0x%08X %s/%03d qj %d qk %d ql %d wait=%d",\
+//
+        NEEDLN = 1; printf("    IsIWEntryReady #%02d: ip 0x%0*" PRIxPTR "%s/%03d qj %d qk %d ql %d wait=%d",\
+            k, w, addr, OPNAME[ip->opcode], ip->CIC, IW[k].qj, IW[k].qk, IW[k].ql, ip->waiting);
     }
     if (!(ip->waiting)) {
         switch (ip->opcode) {
@@ -2238,10 +2059,12 @@ int IssueIWEntry(Instruction **ipp)
                         }
 */
                         if (debug) {
-                            NEEDLN = 0; 
-                            printf("    --> IssueIWEntry #%02d: ip 0x%lX %s/%03d qj %d qk %d ql %d"\
-                                   " wait=%d prevwblat=%d flag=%d\n", k, ip, OPNAME[ip->opcode],
-                                   ip->CIC, IW[k].qj, IW[k].qk, IW[k].ql, ip->waiting, prevwblat, flag);
+                            uintptr_t addr = (uintptr_t)(ip);
+                            int w = (int)(2 * sizeof(addr));  // 2 hex chars per byte
+                            NEEDLN = 0; printf("    --> IssueIWEntry #%02d: ip 0x%0*" PRIxPTR \
+                                    "%s/%03d qj %d qk %d ql %d"\
+                                    " wait=%d prevwblat=%d flag=%d\n", k, w, addr, OPNAME[ip->opcode],
+                                    ip->CIC, IW[k].qj, IW[k].qk, IW[k].ql, ip->waiting, prevwblat, flag);
                         }
 
 // printf("IIWE::flag=%d\n", flag);
@@ -2283,7 +2106,9 @@ int IssueIWEntry(Instruction **ipp)
     *ipp = ipfound;
 
     if (debug) {
-        dbgln(""); printf("  ==> IssueIWEntry:: flag=%d iwall=%d ip=%08X iwrel=%d", flag, iwall, ipfound, iwrel);
+        uintptr_t addr = (uintptr_t)(ip);
+        int w = (int)(2 * sizeof(addr));  // 2 hex chars per byte
+        dbgln(""); printf("  ==> IssueIWEntry:: flag=%d iwall=%d ip=0x%0*" PRIxPTR " iwrel=%d", flag, iwall, w, addr, iwrel);
         if (ipfound) printf("%4s/%03d\n",OPNAME[ipfound->opcode], ipfound->CIC); else printf("\n");
     }
 
@@ -3320,7 +3145,12 @@ if (debug > 2) printf("\nNO-DST-FREE\n");
 
                 // Legacy INIB handling at ISSUE for load/store with fup1
 //                INIB = 0;
-if (debug > 1) printf("  fup1=%08X st=%s STAGE_DELAY[st]=%d\n", ip0->fup1, STAGE_NAME[st], STAGE_DELAY[st]);
+                if (debug > 1) { 
+                    uintptr_t addr = (uintptr_t)(ip0->fup1);
+                    int w = (int)(2 * sizeof(addr));  // 2 hex chars per byte
+                    printf("  fup1=0x%0*" PRIxPTR " st=%s STAGE_DELAY[st]=%d\n", w, addr,\
+                         STAGE_NAME[st], STAGE_DELAY[st]);
+                }
 //                if (ip0->fup1 != NULL && st == ISSUE && STAGE_DELAY[st] == 1 &&
                 if (ip0->fup1 != NULL && st == ISSUE && 
                     (ip0->optype == L_FU || ip0->optype == S_FU)) {
@@ -3979,12 +3809,12 @@ void dump_pipeline(int stage, int ic_ini, int ic_end)
          sprintf(LSQCOLUMN[row++], "|%4s %2s %-3s %04X %2s|", ip->inqueue == 1 ? buf2 : "----", OPNAME[ip->opcode], (regn != -1) ? buf0 : "-", ip->efad, ip->cj == -2 ? "." : buf1);
       }
    }
-   sprintf(LSQCOLUMN[row++], bar1);
+   sprintf(LSQCOLUMN[row++], "%s", bar1);
 //   sprintf(LSQCOLUMN[row++], "");
    LSQCOLUMN[row++][0] = '\0';
 
    // Second pass for SQ
-   sprintf(LSQCOLUMN[row++], bar1);
+   sprintf(LSQCOLUMN[row++], "%s", bar1);
    sprintf(LSQCOLUMN[row++], "|SQ(%-2d)             |", SQElems);
    sprintf(LSQCOLUMN[row++], "|PC   OP Pl  EFAD Cl|");
    for (ic = ic_ini; ic <= ic_end; ++ic) {
@@ -4001,7 +3831,7 @@ void dump_pipeline(int stage, int ic_ini, int ic_end)
          sprintf(LSQCOLUMN[row++], "|%4s %2s %-3s %04X %2s|", ip->inqueue == 1 ? buf2 : "----", OPNAME[ip->opcode], (regn != -1) ? buf0 : "-", ip->efad, (ip->opcode == STORE2) ? buf2 : buf3);
       }
    }
-   sprintf(LSQCOLUMN[row++], bar1);
+   sprintf(LSQCOLUMN[row++], "%s", bar1);
 //printf("row=%d\n", row);
 
     // Third pass
