@@ -105,7 +105,7 @@ for t in $tests; do
    else
       printf "* Testing %12s" $t
       countt=`expr $countt + 1`
-      $src -s yes $* |extractcycles.sh > $tmpfile
+      $src -s yes $* |./extractcycles.sh > $tmpfile
       if [ -s "$tmpfile" ]; then
          out1="./test/$t.cycles"
          outd=`diff $out1 $out2`
